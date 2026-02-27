@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e17">
 <title>StockPulse — 股市監控</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
@@ -18,6 +21,10 @@
 
   /* ── Layout ── */
   .app { display:grid; grid-template-rows:54px 1fr 28px; grid-template-columns:220px 1fr; height:100vh; }
+  @media (max-width: 768px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 54px 140px 1fr 28px; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  }
 
   /* ── Header ── */
   header {
@@ -87,7 +94,6 @@
     display:flex; flex-direction:column; overflow:hidden; background:var(--bg);
   }
 
-  /* Sym info bar */
   .sym-bar {
     display:flex; align-items:center; gap:16px; flex-wrap:wrap;
     padding:8px 16px; background:var(--bg2); border-bottom:1px solid var(--border);
@@ -96,7 +102,10 @@
   .sym-name-big { font-family:'Space Mono',monospace; font-size:18px; font-weight:700; color:var(--accent); }
   .sym-full { font-size:11px; color:var(--dim); }
   .sym-price { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; }
-  .sym-chg { font-family:'Space Mono',monospace; font-size:13px; }
+  .sym-chg { font-family:'Space Mono',monospace; font-size:13px; margin-left:8px; padding: 2px 6px; border-radius: 4px; }
+  .sym-chg.up { background: rgba(0, 230, 118, 0.1); color: var(--green); }
+  .sym-chg.dn { background: rgba(255, 61, 90, 0.1); color: var(--red); }
+  
   .sym-meta { display:flex; gap:14px; margin-left:auto; flex-wrap:wrap; }
   .sym-stat { text-align:right; }
   .sym-stat-l { font-size:9px; color:var(--dim); }
@@ -113,35 +122,19 @@
     background:transparent; font-size:11px; cursor:pointer;
     font-family:'Space Mono',monospace; transition:all .15s; color:var(--dim);
   }
-  .ind-toggle:hover { border-color:var(--text); color:var(--text); }
-  .ind-toggle.on-vol { color:#64b5f6; border-color:#64b5f6; background:rgba(100,181,246,.08); }
-  .ind-toggle.on-rsi { color:var(--yellow); border-color:var(--yellow); background:rgba(255,214,0,.08); }
-  .ind-toggle.on-macd { color:#7b5ea7; border-color:#7b5ea7; background:rgba(123,94,167,.1); }
+  .ind-toggle.active { color:#64b5f6; border-color:#64b5f6; background:rgba(100,181,246,.08); }
   .ctrl-sep { width:1px; height:18px; background:var(--border); margin:0 4px; }
   
-  /* 另開官方圖表按鈕特效 */
   .external-btn {
-    margin-left:auto;
-    display:flex;
-    align-items:center;
-    gap:5px;
-    background:rgba(0, 212, 255, 0.1);
-    border:1px solid var(--accent);
-    color:var(--accent);
-    border-radius:4px;
-    padding:4px 12px;
-    font-size:11px;
-    font-family:'Space Mono',monospace;
-    cursor:pointer;
-    transition:all 0.2s;
+    margin-left:auto; display:flex; align-items:center; gap:5px;
+    background:rgba(0, 212, 255, 0.1); border:1px solid var(--accent); color:var(--accent);
+    border-radius:4px; padding:4px 12px; font-size:11px; font-family:'Space Mono',monospace;
+    cursor:pointer; transition:all 0.2s;
   }
   .external-btn:hover { background:var(--accent); color:var(--bg); }
 
-  /* TradingView widget container */
-  .tv-wrap {
-    flex:1; position:relative; background:#131722;
-  }
-  .tv-wrap iframe { display:block; }
+  /* Chart container */
+  .tv-wrap { flex:1; position:relative; background:#131722; }
   .tv-loading {
     position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; background:var(--bg); gap:12px; z-index:2;
@@ -162,18 +155,15 @@
   @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
   .titem { font-family:'Space Mono',monospace; font-size:11px; display:flex; gap:7px; align-items:center; }
 
-  /* ── Toast ── */
+  /* ── Toast & Modal ── */
   .toast { position:fixed; top:64px; right:16px; padding:8px 15px; border-radius:6px; font-size:12px; font-family:'Space Mono',monospace; z-index:200; opacity:0; transition:opacity .3s; pointer-events:none; }
   .toast.show { opacity:1; }
   .toast.ok { background:rgba(0,230,118,.15); border:1px solid rgba(0,230,118,.4); color:var(--green); }
   .toast.ng { background:rgba(255,61,90,.15); border:1px solid rgba(255,61,90,.4); color:var(--red); }
-
-  /* ── Modal / help overlay ── */
   .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
   .modal-bg.show { opacity:1; pointer-events:all; }
   .modal { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:28px; max-width:460px; width:90%; }
   .modal h3 { font-size:15px; color:var(--accent); margin-bottom:16px; font-family:'Space Mono',monospace; }
-  .modal p { font-size:12px; color:var(--dim); line-height:1.8; margin-bottom:12px; }
   .sym-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
   .sym-table th { font-size:10px; color:var(--dim); text-align:left; padding:4px 8px; border-bottom:1px solid var(--border); }
   .sym-table td { font-size:11px; padding:5px 8px; border-bottom:1px solid rgba(30,45,71,.5); font-family:'Space Mono',monospace; }
@@ -213,7 +203,7 @@
     <div class="wl-footer">
       <div class="add-hint">
         支援純數字輸入<br>
-        例：<code>2330</code> 會自動轉換
+        例：<code>2330</code> 會自動抓取資料
       </div>
     </div>
   </aside>
@@ -225,7 +215,7 @@
         <div class="sym-name-big" id="symBig">--</div>
         <div class="sym-full" id="symFull">請選擇股票</div>
       </div>
-      <div id="priceArea" style="display:none">
+      <div id="priceArea" style="display:flex; align-items:baseline;">
         <div class="sym-price" id="symPrice">--</div>
         <div class="sym-chg" id="symChg">--</div>
       </div>
@@ -234,25 +224,26 @@
 
     <!-- Indicator controls -->
     <div class="ctrl-bar">
-      <span class="ctrl-label">指標：</span>
-      <button class="ind-toggle on-vol" id="tog-vol" onclick="toggleIndicator('vol')">📊 成交量</button>
-      <button class="ind-toggle on-rsi" id="tog-rsi" onclick="toggleIndicator('rsi')">RSI(14)</button>
-      <button class="ind-toggle on-macd" id="tog-macd" onclick="toggleIndicator('macd')">MACD</button>
+      <span class="ctrl-label">內建指標：</span>
+      <button class="ind-toggle active" id="tog-vol" onclick="toggleVolume()">📊 成交量</button>
+      <button class="ind-toggle active" id="tog-ma" onclick="toggleMA()">MA20 均線</button>
+      <button class="ind-toggle" onclick="toast('自建引擎目前專注於價格與成交量，進階震盪指標(RSI/MACD)將於下個版本更新。', 'ng')">RSI / MACD</button>
       <div class="ctrl-sep"></div>
-      <span class="ctrl-label" style="margin-left:0">均線：</span>
-      <button class="ind-toggle on-vol" id="tog-ma20" onclick="toggleMA()" style="color:var(--yellow);border-color:var(--yellow);background:rgba(255,214,0,.08)">MA20/50</button>
-      <div class="ctrl-sep"></div>
-      <span id="dataSource" style="font-size:10px;color:var(--green);font-family:'Space Mono',monospace;margin-left:4px">✓ 直連技術支援</span>
+      <span id="dataSource" style="font-size:10px;color:var(--yellow);font-family:'Space Mono',monospace;margin-left:4px">✓ 自建輕量引擎 (Yahoo Finance 資料)</span>
 
       <button class="external-btn" onclick="openOfficialChart()" title="前往官方網站查看">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-        全螢幕看盤
+        TV 官方看盤
       </button>
     </div>
 
-    <!-- TradingView Widget (Iframe 注入區) -->
+    <!-- 終極自建圖表容器 -->
     <div class="tv-wrap" id="tvWrap">
-      <!-- 內容將由 JavaScript 完全掌控 -->
+      <div class="tv-loading" id="tvLoading">
+        <div class="spinner"></div>
+        <div class="load-txt" id="loadTxt">從 Yahoo Finance 抓取資料中...</div>
+      </div>
+      <div id="custom-chart-container" style="height:100%;width:100%;"></div>
     </div>
   </div>
 
@@ -269,30 +260,36 @@
 <div class="toast" id="toast"></div>
 <div class="modal-bg" id="helpModal" onclick="if(event.target===this)hideHelp()">
   <div class="modal">
-    <h3>📘 股票代號格式說明</h3>
-    <p>系統已支援智能辨識，輸入代號後按 Enter 即可。</p>
+    <h3>📘 自建引擎版本說明</h3>
+    <p>為了突破 TradingView 官方對台灣股市的封鎖，本系統已升級為「自建輕量圖表引擎」，直接透過 Yahoo Finance API 抓取並繪製歷史走勢，確保任何設備皆可完美顯示台股。</p>
     <table class="sym-table">
       <tr><th>市場</th><th>格式</th><th>範例</th></tr>
       <tr><td>美股</td><td>直接輸入</td><td>AAPL · NVDA · TSLA</td></tr>
       <tr><td>台股</td><td>純數字</td><td>2330 · 0050 · 2317</td></tr>
-      <tr><td>加密貨幣</td><td>幣種+USDT</td><td>BTCUSDT</td></tr>
     </table>
     <button class="pill-btn" onclick="hideHelp()" style="margin-top:10px">關閉</button>
   </div>
 </div>
 
-<!-- 已經徹底移除容易出錯的 tv.js 函式庫 -->
+<!-- 載入 Lightweight Charts (指定穩定版本 v4.1.1，避免最新大版本 API 變更導致錯誤) -->
+<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+
 <script>
 // ════════════════════════════════════════════════════════════════
-//  核心邏輯 (終極 Iframe 直連法 - 100% 保證顯示台股)
+//  核心邏輯 (自建輕量圖表 + 多重 Proxy 備援機制)
 // ════════════════════════════════════════════════════════════════
 const DEFAULT_WL = ['TWSE:2330','TWSE:2317','TWSE:0050','NASDAQ:AAPL','NASDAQ:NVDA'];
 
-// 更新 LocalStorage Key，強制清洗舊的錯誤資料
-let watchlist  = JSON.parse(localStorage.getItem('sp_wl_v4') || 'null') || [...DEFAULT_WL];
+let watchlist  = JSON.parse(localStorage.getItem('sp_wl_v5') || 'null') || [...DEFAULT_WL];
 let curSym     = watchlist[0];
 
-let activeStudies = { vol:true, rsi:true, macd:true };
+// 圖表物件
+let lwChart = null;
+let candlestickSeries = null;
+let volumeSeries = null;
+let maSeries = null;
+let showVolume = true;
+let showMA = true;
 
 // 智能轉換代碼
 function toTVSymbol(raw) {
@@ -309,49 +306,185 @@ function displaySym(tvSym) {
   return tvSym.includes(':') ? tvSym.split(':')[1] : tvSym;
 }
 
-// 🚀 核心重構：直接向伺服器請求 Iframe
-function buildWidget(symbol) {
-  const wrap = document.getElementById('tvWrap');
+// 取得 Yahoo Finance 資料 (加入多個 Proxy 輪詢)
+async function fetchYahooData(tvSym) {
+  let yfSym = tvSym;
+  if (tvSym.startsWith('TWSE:')) yfSym = tvSym.replace('TWSE:', '') + '.TW';
+  else if (tvSym.startsWith('TPEX:')) yfSym = tvSym.replace('TPEX:', '') + '.TWO';
+  else if (tvSym.includes(':')) yfSym = tvSym.split(':')[1];
 
-  // 1. 建立指標陣列 (TradingView 要求多個指標時必須以特殊字元 \x1F 分隔)
-  const studies = ['MASimple@tv-basicstudies'];
-  if (activeStudies.vol)  studies.push('Volume@tv-basicstudies');
-  if (activeStudies.rsi)  studies.push('RSI@tv-basicstudies');
-  if (activeStudies.macd) studies.push('MACD@tv-basicstudies');
+  // 抓取過去 1 年的日 K 線資料
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${yfSym}?interval=1d&range=1y`;
+  
+  // 建立代理伺服器池，避免單一伺服器故障
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+  ];
 
-  // 2. 構建完美參數，URLSearchParams 會幫我們處理好所有的編碼問題
-  const params = new URLSearchParams({
-    symbol: symbol,
-    interval: 'D',
-    timezone: 'Asia/Taipei',
-    theme: 'dark',
-    style: '1',
-    locale: 'zh_TW',
-    hide_top_toolbar: '0',
-    hide_legend: '0',
-    save_image: '0',
-    toolbar_bg: '0f1520',
-    studies: studies.join('\x1F') // 完美解決指標分隔符號問題
+  let yfData = null;
+
+  for (const proxyUrl of proxies) {
+    try {
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        yfData = await res.json();
+        break; // 成功取得資料即跳出
+      }
+    } catch (e) {
+      console.warn(`代理伺服器連線失敗: ${proxyUrl}`, e);
+    }
+  }
+
+  // 檢查資料結構是否正確
+  if (!yfData || !yfData.chart || !yfData.chart.result) {
+    console.error("所有代理伺服器皆無法抓取資料或回傳格式異常");
+    return null;
+  }
+
+  try {
+    const result = yfData.chart.result[0];
+    const timestamps = result.timestamp;
+    const quote = result.indicators.quote[0];
+
+    if (!timestamps || !quote) return null;
+
+    let chartData = [];
+    let volumeData = [];
+
+    for (let i = 0; i < timestamps.length; i++) {
+      if (quote.close[i] === null) continue;
+      
+      const date = new Date(timestamps[i] * 1000);
+      const timeStr = date.toISOString().split('T')[0]; // 轉為 YYYY-MM-DD
+
+      chartData.push({
+        time: timeStr,
+        open: quote.open[i],
+        high: quote.high[i],
+        low: quote.low[i],
+        close: quote.close[i],
+      });
+
+      volumeData.push({
+        time: timeStr,
+        value: quote.volume[i],
+        color: quote.close[i] >= quote.open[i] ? 'rgba(0, 230, 118, 0.4)' : 'rgba(255, 61, 90, 0.4)'
+      });
+    }
+    return { chartData, volumeData };
+  } catch (e) {
+    console.error("解析資料過程發生錯誤", e);
+    return null;
+  }
+}
+
+// 計算 20 日移動平均線 (SMA)
+function calculateSMA(data, period) {
+  const sma = [];
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) continue;
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += data[i - j].close;
+    }
+    sma.push({ time: data[i].time, value: sum / period });
+  }
+  return sma;
+}
+
+// 建立自建的輕量級圖表
+async function buildChart(symbol) {
+  const loading = document.getElementById('tvLoading');
+  const loadTxt = document.getElementById('loadTxt');
+  loading.classList.remove('hidden');
+  loadTxt.innerText = `正在為 ${displaySym(symbol)} 抓取歷史資料...`;
+
+  const container = document.getElementById('custom-chart-container');
+  container.innerHTML = ''; // 清空舊圖表
+
+  // 1. 抓取資料
+  const data = await fetchYahooData(symbol);
+
+  if (!data || data.chartData.length === 0) {
+    container.innerHTML = `<div style="color:var(--red); text-align:center; padding-top:100px; font-family:'Space Mono',monospace;">網路請求失敗或無此代碼資料，請稍後再試。</div>`;
+    loading.classList.add('hidden');
+    return;
+  }
+
+  // 2. 初始化 Lightweight Charts
+  lwChart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'solid', color: '#0a0e17' },
+      textColor: '#4a6080',
+    },
+    grid: {
+      vertLines: { color: '#1e2d47' },
+      horzLines: { color: '#1e2d47' },
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+    },
+    rightPriceScale: {
+      borderColor: '#1e2d47',
+    },
+    timeScale: {
+      borderColor: '#1e2d47',
+      timeVisible: true,
+    },
   });
 
-  // 3. 組合出終極 URL
-  const iframeUrl = `https://s.tradingview.com/widgetembed/?${params.toString()}`;
+  // 監聽視窗大小改變以自動調整圖表
+  new ResizeObserver(entries => {
+    if (entries.length === 0 || entries[0].target !== container) return;
+    const newRect = entries[0].contentRect;
+    lwChart.applyOptions({ height: newRect.height, width: newRect.width });
+  }).observe(container);
 
-  // 4. 清空舊圖表，塞入全新的 Iframe 與載入動畫
-  wrap.innerHTML = `
-    <div class="tv-loading" id="tvLoading">
-      <div class="spinner"></div>
-      <div class="load-txt" id="loadTxt">安全直連載入中...</div>
-    </div>
-    <iframe
-      id="tv-iframe"
-      src="${iframeUrl}"
-      style="width: 100%; height: 100%; border: none; display: block;"
-      onload="document.getElementById('tvLoading').style.display = 'none';"
-    ></iframe>
-  `;
+  // 3. 繪製 K 線 (Candlestick)
+  candlestickSeries = lwChart.addCandlestickSeries({
+    upColor: '#00e676',
+    downColor: '#ff3d5a',
+    borderVisible: false,
+    wickUpColor: '#00e676',
+    wickDownColor: '#ff3d5a',
+  });
+  candlestickSeries.setData(data.chartData);
+
+  // 4. 繪製成交量 (Volume) 作為底部覆蓋層
+  volumeSeries = lwChart.addHistogramSeries({
+    color: '#26a69a',
+    priceFormat: { type: 'volume' },
+    priceScaleId: '', // 設置為不影響主價格軸的覆蓋層
+    scaleMargins: { top: 0.8, bottom: 0 },
+  });
+  if (showVolume) volumeSeries.setData(data.volumeData);
+
+  // 5. 繪製 MA20 均線
+  const ma20Data = calculateSMA(data.chartData, 20);
+  maSeries = lwChart.addLineSeries({
+    color: '#ffd600',
+    lineWidth: 2,
+    crosshairMarkerVisible: false,
+  });
+  if (showMA) maSeries.setData(ma20Data);
+
+  // 6. 更新頂部真實價格資訊！
+  const latest = data.chartData[data.chartData.length - 1];
+  const prev = data.chartData[data.chartData.length - 2];
+  if (latest && prev) {
+    const chg = latest.close - prev.close;
+    const chgPct = (chg / prev.close) * 100;
+    
+    document.getElementById('symPrice').textContent = latest.close.toFixed(2);
+    const chgEl = document.getElementById('symChg');
+    chgEl.textContent = `${chg > 0 ? '+' : ''}${chg.toFixed(2)} (${chgPct.toFixed(2)}%)`;
+    chgEl.className = `sym-chg ${chg >= 0 ? 'up' : 'dn'}`;
+  }
 
   updateSymBar(symbol);
+  loading.classList.add('hidden');
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -374,7 +507,7 @@ function updateSymBar(tvSym) {
   document.getElementById('symBig').textContent  = displaySym(tvSym);
   document.getElementById('symFull').textContent = (info.name || '') + ' ' + (tvSym.split(':')[0] || '');
   document.getElementById('symMeta').innerHTML = `
-    <div class="sym-stat"><div class="sym-stat-l">伺服器</div><div class="sym-stat-v" style="color:var(--green)">Iframe 直連</div></div>`;
+    <div class="sym-stat"><div class="sym-stat-l">伺服器</div><div class="sym-stat-v" style="color:var(--yellow)">Yahoo Data API</div></div>`;
 }
 
 function renderWatchlist() {
@@ -392,7 +525,7 @@ function renderWatchlist() {
 }
 
 function updateTicker() {
-  const items = ['AAPL Apple', 'NVDA NVIDIA', '2330 台積電', '0050 台灣50', '2317 鴻海', 'BTC Bitcoin'].map(txt => `
+  const items = ['AAPL Apple', 'NVDA NVIDIA', '2330 台積電', '0050 台灣50', '2317 鴻海'].map(txt => `
     <span class="titem">
       <span style="color:var(--accent)">${txt.split(' ')[0]}</span>
       <span style="color:var(--text)">${txt.split(' ')[1]}</span>
@@ -400,20 +533,30 @@ function updateTicker() {
   document.getElementById('tickerEl').innerHTML = items + items + items;
 }
 
-function toggleIndicator(name) {
-  activeStudies[name] = !activeStudies[name];
-  const clsMap = { vol:'on-vol', rsi:'on-rsi', macd:'on-macd' };
-  const btn = document.getElementById('tog-'+name);
-  activeStudies[name] ? btn.classList.add(clsMap[name]) : btn.classList.remove(clsMap[name]);
-  buildWidget(curSym);
+// 控制面板：顯示隱藏成交量與均線
+function toggleVolume() {
+  showVolume = !showVolume;
+  const btn = document.getElementById('tog-vol');
+  showVolume ? btn.classList.add('active') : btn.classList.remove('active');
+  if (volumeSeries) {
+    // 重新繪製整張圖是最穩定的作法
+    buildChart(curSym);
+  }
 }
 
-function toggleMA() { toast(`已預設載入 MA20，您可於圖表左上方設定中修改週期。`, 'ok'); }
+function toggleMA() {
+  showMA = !showMA;
+  const btn = document.getElementById('tog-ma');
+  showMA ? btn.classList.add('active') : btn.classList.remove('active');
+  if (maSeries) {
+    buildChart(curSym);
+  }
+}
 
 function selectSym(tvSym) {
   curSym = tvSym;
   renderWatchlist();
-  buildWidget(tvSym);
+  buildChart(tvSym);
 }
 
 function addFromSearch() {
@@ -441,18 +584,18 @@ function rmSym(tvSym, ev) {
 function clearAll() {
   if (!confirm('確定清空自選清單？')) return;
   watchlist = []; saveWL(); renderWatchlist();
-  document.getElementById('tvWrap').innerHTML = `
+  document.getElementById('custom-chart-container').innerHTML = `
     <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg)">
       <div style="font-size:36px">📈</div>
       <div style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text)">請加入股票開始監控</div>
       <div style="font-size:11px;color:var(--dim);text-align:center;line-height:2">
-        美股：AAPL · NVDA · MSFT · TSLA · META<br>
+        美股：AAPL · NVDA · MSFT · TSLA<br>
         台股：2330 · 0050 · 2317 · 0056
       </div>
     </div>`;
 }
 
-function saveWL() { localStorage.setItem('sp_wl_v4', JSON.stringify(watchlist)); }
+function saveWL() { localStorage.setItem('sp_wl_v5', JSON.stringify(watchlist)); }
 
 function toast(msg, t='ok') {
   const el = document.getElementById('toast');
@@ -472,7 +615,7 @@ window.onload = function() {
   updateTicker();
   renderWatchlist();
   if (watchlist.length) {
-    buildWidget(curSym);
+    buildChart(curSym);
   }
 };
 </script>
