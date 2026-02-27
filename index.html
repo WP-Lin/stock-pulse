@@ -3,621 +3,493 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0e17">
-<title>StockPulse — 股市監控</title>
+<title>STOCKPULSE — 智能選股掃描器 (全市場籌碼驅動版)</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
   :root {
-    --bg:#0a0e17; --bg2:#0f1520; --bg3:#141c2e;
-    --border:#1e2d47; --accent:#00d4ff;
-    --green:#00e676; --red:#ff3d5a;
-    --text:#c8d8f0; --dim:#4a6080; --yellow:#ffd600;
+    --bg: #0b0f19; --bg-card: #151b2b; --bg-hover: #1c2438;
+    --border: #232d42; --accent: #00d4ff; --accent-glow: rgba(0, 212, 255, 0.15);
+    --green: #00e676; --red: #ff3d5a;
+    --text-main: #e2e8f0; --text-muted: #64748b; --yellow: #ffd600;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { height:100%; background:var(--bg); color:var(--text); font-family:'Noto Sans TC',sans-serif; overflow:hidden; }
-  ::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:var(--bg2);} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-
-  /* ── Layout ── */
-  .app { display:grid; grid-template-rows:54px 1fr 28px; grid-template-columns:220px 1fr; height:100vh; }
-  @media (max-width: 768px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: 54px 140px 1fr 28px; }
-    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
-  }
-
-  /* ── Header ── */
-  header {
-    grid-column:1/-1;
-    display:flex; align-items:center; gap:12px;
-    padding:0 16px; background:var(--bg2); border-bottom:1px solid var(--border);
-  }
-  .logo { font-family:'Space Mono',monospace; font-size:15px; color:var(--accent); letter-spacing:2px; }
-  .logo span { color:var(--dim); }
-
-  .search-row { display:flex; gap:8px; align-items:center; }
-  .sbox { display:flex; align-items:center; gap:7px; background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:5px 11px; width:240px; transition:border-color .2s; }
-  .sbox:focus-within { border-color:var(--accent); }
-  .sbox input { background:none; border:none; outline:none; color:var(--text); font-family:'Space Mono',monospace; font-size:12px; width:100%; }
-  .sbox input::placeholder { color:var(--dim); }
-
-  .pill-btn { padding:4px 13px; border-radius:4px; border:1px solid var(--accent); background:rgba(0,212,255,.1); color:var(--accent); font-size:12px; cursor:pointer; font-family:'Space Mono',monospace; transition:all .2s; white-space:nowrap; }
-  .pill-btn:hover { background:var(--accent); color:var(--bg); }
-  .pill-btn.gray { border-color:var(--border); background:transparent; color:var(--dim); }
-  .pill-btn.gray:hover { border-color:var(--dim); color:var(--text); }
-
-  .hdr-right { display:flex; gap:10px; align-items:center; margin-left:auto; }
-  .badge { padding:3px 9px; border-radius:10px; font-size:10px; font-family:'Space Mono',monospace; border:1px solid; white-space:nowrap; }
-  .badge.us { color:#64b5f6; border-color:rgba(100,181,246,.3); background:rgba(100,181,246,.08); }
-  .badge.tw { color:var(--green); border-color:rgba(0,230,118,.3); background:rgba(0,230,118,.08); }
-  .live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  #clock { font-family:'Space Mono',monospace; font-size:11px; color:var(--dim); }
-
-  /* ── Watchlist sidebar ── */
-  .sidebar {
-    background:var(--bg2); border-right:1px solid var(--border);
-    display:flex; flex-direction:column; overflow:hidden;
-  }
-  .sidebar-head {
-    display:flex; justify-content:space-between; align-items:center;
-    padding:10px 14px 6px; border-bottom:1px solid var(--border);
-  }
-  .sidebar-title { font-size:10px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; }
-  .icon-btn { background:none; border:none; color:var(--dim); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:3px; transition:color .15s; }
-  .icon-btn:hover { color:var(--red); }
-
-  .wl-list { flex:1; overflow-y:auto; }
-  .witem {
-    padding:9px 14px; cursor:pointer; transition:background .15s;
-    border-left:2px solid transparent; position:relative;
-  }
-  .witem:hover { background:var(--bg3); }
-  .witem.active { background:var(--bg3); border-left-color:var(--accent); }
-  .wi-row1 { display:flex; justify-content:space-between; align-items:center; }
-  .wi-sym { font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
-  .wi-rm { opacity:0; font-size:11px; color:var(--dim); background:none; border:none; cursor:pointer; transition:all .15s; padding:0; }
-  .witem:hover .wi-rm { opacity:1; }
-  .wi-rm:hover { color:var(--red) !important; }
-  .wi-name { font-size:10px; color:var(--dim); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .wi-row2 { display:flex; justify-content:space-between; margin-top:4px; }
-  .wi-price { font-family:'Space Mono',monospace; font-size:12px; }
-  .wi-pct { font-size:10px; }
-  .up { color:var(--green); } .dn { color:var(--red); }
-
-  .wl-footer { padding:10px 14px; border-top:1px solid var(--border); }
-  .add-hint { font-size:10px; color:var(--dim); line-height:1.6; }
-  .add-hint code { background:var(--bg3); padding:1px 5px; border-radius:3px; color:var(--accent); font-size:10px; }
-
-  /* ── Chart main area ── */
-  .chart-main {
-    display:flex; flex-direction:column; overflow:hidden; background:var(--bg);
-  }
-
-  .sym-bar {
-    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
-    padding:8px 16px; background:var(--bg2); border-bottom:1px solid var(--border);
-    min-height:52px;
-  }
-  .sym-name-big { font-family:'Space Mono',monospace; font-size:18px; font-weight:700; color:var(--accent); }
-  .sym-full { font-size:11px; color:var(--dim); }
-  .sym-price { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; }
-  .sym-chg { font-family:'Space Mono',monospace; font-size:13px; margin-left:8px; padding: 2px 6px; border-radius: 4px; }
-  .sym-chg.up { background: rgba(0, 230, 118, 0.1); color: var(--green); }
-  .sym-chg.dn { background: rgba(255, 61, 90, 0.1); color: var(--red); }
   
-  .sym-meta { display:flex; gap:14px; margin-left:auto; flex-wrap:wrap; }
-  .sym-stat { text-align:right; }
-  .sym-stat-l { font-size:9px; color:var(--dim); }
-  .sym-stat-v { font-family:'Space Mono',monospace; font-size:11px; }
-
-  /* Indicator controls */
-  .ctrl-bar {
-    display:flex; align-items:center; gap:6px; padding:6px 14px;
-    background:var(--bg2); border-bottom:1px solid var(--border); flex-wrap:wrap;
-  }
-  .ctrl-label { font-size:10px; color:var(--dim); margin-right:4px; }
-  .ind-toggle {
-    padding:3px 10px; border-radius:3px; border:1px solid var(--border);
-    background:transparent; font-size:11px; cursor:pointer;
-    font-family:'Space Mono',monospace; transition:all .15s; color:var(--dim);
-  }
-  .ind-toggle.active { color:#64b5f6; border-color:#64b5f6; background:rgba(100,181,246,.08); }
-  .ctrl-sep { width:1px; height:18px; background:var(--border); margin:0 4px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text-main); font-family: 'Noto Sans TC', sans-serif; padding: 30px 40px; min-height: 100vh; }
   
-  .external-btn {
-    margin-left:auto; display:flex; align-items:center; gap:5px;
-    background:rgba(0, 212, 255, 0.1); border:1px solid var(--accent); color:var(--accent);
-    border-radius:4px; padding:4px 12px; font-size:11px; font-family:'Space Mono',monospace;
-    cursor:pointer; transition:all 0.2s;
-  }
-  .external-btn:hover { background:var(--accent); color:var(--bg); }
+  /* --- Header --- */
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+  .logo { font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+  .logo span { color: var(--text-muted); }
+  
+  /* --- Section Titles --- */
+  .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--text-main); display: flex; align-items: center; gap: 8px; margin-top: 24px;}
+  .section-title.primary { color: var(--yellow); }
+  
+  /* --- Filter Cards Grid --- */
+  .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  
+  .filter-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: relative; overflow: hidden; }
+  .filter-card.disabled { opacity: 0.5; filter: grayscale(80%); }
+  .filter-card.disabled::after { content: ''; position: absolute; inset: 0; background: rgba(11, 15, 25, 0.3); pointer-events: none; }
+  .filter-card:hover:not(.disabled) { border-color: var(--accent-glow); transform: translateY(-2px); }
+  
+  /* 特別標亮第一層濾網 */
+  .filter-card.pool-generator { border-color: rgba(255, 214, 0, 0.4); background: rgba(255, 214, 0, 0.02); }
+  .filter-card.pool-generator .fc-header { color: var(--yellow); }
 
-  /* Chart container */
-  .tv-wrap { flex:1; position:relative; background:#131722; }
-  .tv-loading {
-    position:absolute; inset:0; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; background:var(--bg); gap:12px; z-index:2;
-    transition:opacity .5s;
-  }
-  .tv-loading.hidden { opacity:0; pointer-events:none; }
-  .spinner { width:32px; height:32px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
-  @keyframes spin { to{transform:rotate(360deg)} }
-  .load-txt { font-family:'Space Mono',monospace; font-size:12px; color:var(--dim); text-align:center; line-height:1.6; }
+  .fc-header { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; color: var(--accent); }
+  .fc-body { font-size: 12px; color: var(--text-main); display: flex; flex-direction: column; gap: 8px; }
+  .fc-desc { color: var(--text-muted); font-size: 11px; margin-bottom: 4px; }
+  
+  /* --- Toggle Switch UI --- */
+  .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .3s; border-radius: 34px; }
+  .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: .3s; border-radius: 50%; }
+  input:checked + .slider { background-color: var(--accent-glow); border: 1px solid var(--accent); }
+  input:checked + .slider:before { transform: translateX(16px); background-color: var(--accent); }
+  
+  /* 黃色開關 (魚池專用) */
+  .pool-generator input:checked + .slider { background-color: rgba(255, 214, 0, 0.2); border: 1px solid var(--yellow); }
+  .pool-generator input:checked + .slider:before { background-color: var(--yellow); }
 
-  /* ── Ticker bar ── */
-  .ticker-bar {
-    grid-column:1/-1;
-    background:var(--bg2); border-top:1px solid var(--border);
-    display:flex; align-items:center; overflow:hidden;
-  }
-  .ticker-inner { display:flex; gap:28px; animation:ticker 60s linear infinite; white-space:nowrap; padding-left:100%; }
-  @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
-  .titem { font-family:'Space Mono',monospace; font-size:11px; display:flex; gap:7px; align-items:center; }
+  /* --- Inputs inside cards --- */
+  .sub-option { display: flex; align-items: center; gap: 8px; }
+  .sub-option input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+  .sub-option input[type="number"] { width: 60px; background: var(--bg); color: var(--accent); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: 'Space Mono', monospace; font-size: 12px; outline: none; text-align: center; }
+  .pool-generator .sub-option input[type="number"] { color: var(--yellow); }
+  .sub-option select { background: var(--bg); color: var(--accent); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: 'Space Mono', monospace; font-size: 12px; outline: none; }
 
-  /* ── Toast & Modal ── */
-  .toast { position:fixed; top:64px; right:16px; padding:8px 15px; border-radius:6px; font-size:12px; font-family:'Space Mono',monospace; z-index:200; opacity:0; transition:opacity .3s; pointer-events:none; }
-  .toast.show { opacity:1; }
-  .toast.ok { background:rgba(0,230,118,.15); border:1px solid rgba(0,230,118,.4); color:var(--green); }
-  .toast.ng { background:rgba(255,61,90,.15); border:1px solid rgba(255,61,90,.4); color:var(--red); }
-  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
-  .modal-bg.show { opacity:1; pointer-events:all; }
-  .modal { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:28px; max-width:460px; width:90%; }
-  .modal h3 { font-size:15px; color:var(--accent); margin-bottom:16px; font-family:'Space Mono',monospace; }
-  .sym-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
-  .sym-table th { font-size:10px; color:var(--dim); text-align:left; padding:4px 8px; border-bottom:1px solid var(--border); }
-  .sym-table td { font-size:11px; padding:5px 8px; border-bottom:1px solid rgba(30,45,71,.5); font-family:'Space Mono',monospace; }
-  .sym-table td:first-child { color:var(--accent); }
+  /* --- Action Area --- */
+  .action-container { display: flex; gap: 16px; margin-bottom: 24px; align-items: stretch; }
+  .log-box { flex: 1; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 12px; padding: 12px 16px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+  .log-box span.highlight { color: var(--yellow); font-weight: bold; }
+  
+  .run-btn { width: 200px; background: var(--accent); color: #000; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 0 15px var(--accent-glow); }
+  .run-btn:hover { background: #00b8e6; transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4); }
+  .run-btn:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* --- Table --- */
+  .table-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
+  tr:hover td { background: var(--bg-hover); }
+  
+  .sym-col { display: flex; flex-direction: column; }
+  .sym { font-family: 'Space Mono', monospace; font-weight: 700; font-size: 15px; color: var(--text-main); }
+  .name { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  
+  .price-col { font-family: 'Space Mono', monospace; display: flex; flex-direction: column; }
+  .price { font-size: 14px; font-weight: 700; color: var(--text-main); }
+  .date { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .status-pass { background: rgba(0, 230, 118, 0.1); color: var(--green); border: 1px solid rgba(0, 230, 118, 0.2); }
+  .status-fail { background: rgba(255, 61, 90, 0.05); color: var(--text-muted); border: 1px solid rgba(255, 61, 90, 0.1); }
+  
+  .final-pass { background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent); padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; display: inline-block; animation: pulse-glow 2s infinite; }
+  .final-fail { color: var(--text-muted); font-size: 12px; }
+
+  @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 5px transparent; } 50% { box-shadow: 0 0 10px var(--accent); } }
+  .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid #000; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<div class="app">
-  <!-- ═══ HEADER ═══ -->
-  <header>
-    <div class="logo">STOCK<span>PULSE</span></div>
-    <div class="search-row">
-      <div class="sbox">
-        <svg width="13" height="13" fill="none" stroke="#4a6080" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input id="searchInput" placeholder="代碼 如 2330 / AAPL" />
-      </div>
-      <button class="pill-btn" onclick="addFromSearch()">+ 加入</button>
-      <button class="pill-btn gray" onclick="showHelp()">？ 說明</button>
-    </div>
-    <div class="hdr-right">
-      <span class="badge us">🇺🇸 美股</span>
-      <span class="badge tw">🇹🇼 台股</span>
-      <div class="live-dot"></div>
-      <span style="font-size:11px;color:var(--green);font-family:'Space Mono',monospace">即時報價</span>
-      <span id="clock"></span>
-    </div>
-  </header>
+<div class="header">
+  <div class="logo">STOCK<span>PULSE</span> 全市場籌碼掃描器</div>
+</div>
 
-  <!-- ═══ WATCHLIST ═══ -->
-  <aside class="sidebar">
-    <div class="sidebar-head">
-      <span class="sidebar-title">自選清單</span>
-      <button class="icon-btn" onclick="clearAll()" title="清空">✕</button>
+<!-- ================= 第一層：魚池產生器 ================= -->
+<div class="section-title primary">🎣 第一層濾網：建立籌碼魚池 (全市場 1700 檔掃描)</div>
+<div class="filter-grid" style="grid-template-columns: 1fr;">
+  <!-- 法人籌碼卡片 (100% 真實資料庫) -->
+  <div class="filter-card pool-generator" id="card-inst">
+    <div class="fc-header">
+      <label class="switch"><input type="checkbox" id="chkInst" checked disabled><span class="slider"></span></label>
+      三大法人籌碼吃貨特徵 (資料庫精算版)
     </div>
-    <div class="wl-list" id="wlList"></div>
-    <div class="wl-footer">
-      <div class="add-hint">
-        支援純數字輸入<br>
-        例：<code>2330</code> 會自動抓取資料
+    <div class="fc-body">
+      <div class="fc-desc">與您的 Google Sheet 資料庫連線，<strong style="color:var(--yellow)">符合下方勾選之【任一】條件</strong>的股票，即納入魚池：</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px;">
+        <!-- 外資區塊 -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label class="sub-option">
+            <input type="checkbox" id="optForeignDay" checked> 外資單日買超 > 
+            <input type="number" id="valForeignDay" value="500" min="0" step="100"> 張
+          </label>
+          <label class="sub-option">
+            <input type="checkbox" id="optForeignCons"> 外資連續買超 >= 
+            <input type="number" id="valForeignCons" value="3" min="2" max="20"> 日
+          </label>
+        </div>
+        <!-- 投信區塊 -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label class="sub-option">
+            <input type="checkbox" id="optTrustDay" checked> 投信單日買超 > 
+            <input type="number" id="valTrustDay" value="300" min="0" step="100"> 張
+          </label>
+          <label class="sub-option">
+            <input type="checkbox" id="optTrustCons" checked> 投信連續買超 >= 
+            <input type="number" id="valTrustCons" value="3" min="2" max="20"> 日
+          </label>
+        </div>
       </div>
     </div>
-  </aside>
+  </div>
+</div>
 
-  <!-- ═══ MAIN CHART ═══ -->
-  <div class="chart-main">
-    <div class="sym-bar" id="symBar">
-      <div>
-        <div class="sym-name-big" id="symBig">--</div>
-        <div class="sym-full" id="symFull">請選擇股票</div>
-      </div>
-      <div id="priceArea" style="display:flex; align-items:baseline;">
-        <div class="sym-price" id="symPrice">--</div>
-        <div class="sym-chg" id="symChg">--</div>
-      </div>
-      <div class="sym-meta" id="symMeta"></div>
+<!-- ================= 第二層：技術與基本面驗證 ================= -->
+<div class="section-title">🔍 第二層濾網：過濾魚池中的發動標的</div>
+<div class="filter-grid">
+  
+  <!-- 基本面卡片 -->
+  <div class="filter-card disabled" id="card-eps">
+    <div class="fc-header">
+      <label class="switch"><input type="checkbox" id="chkEps" onchange="toggleCard('eps')"><span class="slider"></span></label>
+      基本面要求 (模擬)
     </div>
-
-    <!-- Indicator controls -->
-    <div class="ctrl-bar">
-      <span class="ctrl-label">內建指標：</span>
-      <button class="ind-toggle active" id="tog-vol" onclick="toggleVolume()">📊 成交量</button>
-      <button class="ind-toggle active" id="tog-ma" onclick="toggleMA()">MA20 均線</button>
-      <button class="ind-toggle" onclick="toast('自建引擎目前專注於價格與成交量，進階震盪指標(RSI/MACD)將於下個版本更新。', 'ng')">RSI / MACD</button>
-      <div class="ctrl-sep"></div>
-      <span id="dataSource" style="font-size:10px;color:var(--yellow);font-family:'Space Mono',monospace;margin-left:4px">✓ 自建輕量引擎 (Yahoo Finance 資料)</span>
-
-      <button class="external-btn" onclick="openOfficialChart()" title="前往官方網站查看">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-        TV 官方看盤
-      </button>
-    </div>
-
-    <!-- 終極自建圖表容器 -->
-    <div class="tv-wrap" id="tvWrap">
-      <div class="tv-loading" id="tvLoading">
-        <div class="spinner"></div>
-        <div class="load-txt" id="loadTxt">從 Yahoo Finance 抓取資料中...</div>
-      </div>
-      <div id="custom-chart-container" style="height:100%;width:100%;"></div>
+    <div class="fc-body">
+      <div class="fc-desc">要求公司有實質獲利(目前為模擬，待後續串接財報)。</div>
+      <label class="sub-option"><input type="checkbox" checked disabled> 近一季 EPS > 0</label>
     </div>
   </div>
 
-  <!-- ═══ TICKER ═══ -->
-  <div class="ticker-bar">
-    <div class="ticker-inner" id="tickerEl">
-      <span class="titem"><span style="color:var(--dim)">即時行情跑馬燈</span></span>
+  <!-- 均線趨勢卡片 (多選) -->
+  <div class="filter-card" id="card-ma">
+    <div class="fc-header">
+      <label class="switch"><input type="checkbox" id="chkMA" checked onchange="toggleCard('ma')"><span class="slider"></span></label>
+      均線趨勢過濾
+    </div>
+    <div class="fc-body">
+      <div class="fc-desc">收盤價須站上勾選之均線。</div>
+      <label class="sub-option"><input type="checkbox" id="optMA20" checked> 站上 20MA (月線)</label>
+      <label class="sub-option"><input type="checkbox" id="optMA40"> 站上 40MA</label>
+      <label class="sub-option"><input type="checkbox" id="optMA60"> 站上 60MA (季線)</label>
+    </div>
+  </div>
+
+  <!-- 突破卡片 -->
+  <div class="filter-card" id="card-high">
+    <div class="fc-header">
+      <label class="switch"><input type="checkbox" id="chkHigh" checked onchange="toggleCard('high')"><span class="slider"></span></label>
+      突破僵局
+    </div>
+    <div class="fc-body">
+      <div class="fc-desc">過濾掉還在盤整底部的死魚股。</div>
+      <label class="sub-option"><input type="checkbox" checked disabled> 收盤創近 10 日新高</label>
+    </div>
+  </div>
+
+  <!-- 成交量卡片 -->
+  <div class="filter-card" id="card-vol">
+    <div class="fc-header">
+      <label class="switch"><input type="checkbox" id="chkVol" checked onchange="toggleCard('vol')"><span class="slider"></span></label>
+      異常爆量 (找飆點)
+    </div>
+    <div class="fc-body">
+      <div class="fc-desc">今日成交量須遠大於過去均量。</div>
+      <div class="sub-option">
+        標準：> 5日均量
+        <select id="valVol">
+          <option value="1.3">1.3 倍</option>
+          <option value="1.5" selected>1.5 倍 (推薦)</option>
+          <option value="2.0">2.0 倍 (強勢爆發)</option>
+          <option value="3.0">3.0 倍</option>
+        </select>
+      </div>
     </div>
   </div>
 
 </div>
 
-<!-- ═══ TOAST & MODAL ═══ -->
-<div class="toast" id="toast"></div>
-<div class="modal-bg" id="helpModal" onclick="if(event.target===this)hideHelp()">
-  <div class="modal">
-    <h3>📘 自建引擎版本說明</h3>
-    <p>為了突破 TradingView 官方對台灣股市的封鎖，本系統已升級為「自建輕量圖表引擎」，直接透過 Yahoo Finance API 抓取並繪製歷史走勢，確保任何設備皆可完美顯示台股。</p>
-    <table class="sym-table">
-      <tr><th>市場</th><th>格式</th><th>範例</th></tr>
-      <tr><td>美股</td><td>直接輸入</td><td>AAPL · NVDA · TSLA</td></tr>
-      <tr><td>台股</td><td>純數字</td><td>2330 · 0050 · 2317</td></tr>
-    </table>
-    <button class="pill-btn" onclick="hideHelp()" style="margin-top:10px">關閉</button>
+<!-- --- 執行面板 --- -->
+<div class="action-container">
+  <div class="log-box" id="logBox">
+    等待啟動...<br>
+    點擊右側按鈕，系統將自動連線至您的專屬 Google Sheet 資料庫，精算全市場籌碼後進行技術面驗證。
   </div>
+  <button class="run-btn" id="runBtn" onclick="runScreener()">🚀 啟動全市場掃描</button>
 </div>
 
-<!-- 載入 Lightweight Charts (指定穩定版本 v4.1.1，避免最新大版本 API 變更導致錯誤) -->
-<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+<div class="table-container">
+  <table>
+    <thead id="tableHead">
+      <tr><th style="padding: 30px;">請先點擊「啟動全市場掃描」按鈕。</th></tr>
+    </thead>
+    <tbody id="resultBody">
+    </tbody>
+  </table>
+</div>
 
 <script>
-// ════════════════════════════════════════════════════════════════
-//  核心邏輯 (自建輕量圖表 + 多重 Proxy 備援機制)
-// ════════════════════════════════════════════════════════════════
-const DEFAULT_WL = ['TWSE:2330','TWSE:2317','TWSE:0050','NASDAQ:AAPL','NASDAQ:NVDA'];
+// ============================================================================
+// 0. UI 控制與基礎設定
+// ============================================================================
+// 【綁定您的專屬後端 API】(請確認您已發布「新版本」部署)
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwqLK4vYuVglCoY33pZSCbs46_R57tW_uenxWyZ9-pnsL3KpibPsm0-u70bIn7TphNRNg/exec";
 
-let watchlist  = JSON.parse(localStorage.getItem('sp_wl_v5') || 'null') || [...DEFAULT_WL];
-let curSym     = watchlist[0];
-
-// 圖表物件
-let lwChart = null;
-let candlestickSeries = null;
-let volumeSeries = null;
-let maSeries = null;
-let showVolume = true;
-let showMA = true;
-
-// 智能轉換代碼
-function toTVSymbol(raw) {
-  const s = raw.trim().toUpperCase();
-  if (s.includes(':')) return s;              
-  if (/^\d{4}$/.test(s) || /^\d{4}[A-Z]{0,2}$/.test(s)) return 'TWSE:' + s;
-  return s;
+function toggleCard(id) {
+  const isChecked = document.getElementById(`chk${id.charAt(0).toUpperCase() + id.slice(1)}`).checked;
+  const card = document.getElementById(`card-${id}`);
+  if (isChecked) card.classList.remove('disabled');
+  else card.classList.add('disabled');
 }
 
-function displaySym(tvSym) {
-  if (!tvSym) return '';
-  if (tvSym.startsWith('TWSE:'))  return tvSym.replace('TWSE:','');
-  if (tvSym.startsWith('TPEX:'))  return tvSym.replace('TPEX:','');
-  return tvSym.includes(':') ? tvSym.split(':')[1] : tvSym;
+function log(msg) {
+  const box = document.getElementById('logBox');
+  box.innerHTML = msg; 
 }
 
-// 取得 Yahoo Finance 資料 (加入多個 Proxy 輪詢)
-async function fetchYahooData(tvSym) {
-  let yfSym = tvSym;
-  if (tvSym.startsWith('TWSE:')) yfSym = tvSym.replace('TWSE:', '') + '.TW';
-  else if (tvSym.startsWith('TPEX:')) yfSym = tvSym.replace('TPEX:', '') + '.TWO';
-  else if (tvSym.includes(':')) yfSym = tvSym.split(':')[1];
-
-  // 抓取過去 1 年的日 K 線資料
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${yfSym}?interval=1d&range=1y`;
-  
-  // 建立代理伺服器池，避免單一伺服器故障
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
-  ];
-
-  let yfData = null;
-
-  for (const proxyUrl of proxies) {
-    try {
-      const res = await fetch(proxyUrl);
-      if (res.ok) {
-        yfData = await res.json();
-        break; // 成功取得資料即跳出
-      }
-    } catch (e) {
-      console.warn(`代理伺服器連線失敗: ${proxyUrl}`, e);
-    }
-  }
-
-  // 檢查資料結構是否正確
-  if (!yfData || !yfData.chart || !yfData.chart.result) {
-    console.error("所有代理伺服器皆無法抓取資料或回傳格式異常");
-    return null;
-  }
-
+// ============================================================================
+// 1. 資料獲取模組
+// ============================================================================
+async function fetchRealMarketData(symbol) {
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=6mo`;
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
   try {
-    const result = yfData.chart.result[0];
-    const timestamps = result.timestamp;
+    const res = await fetch(proxyUrl);
+    const data = await res.json();
+    const result = data.chart.result[0];
     const quote = result.indicators.quote[0];
-
-    if (!timestamps || !quote) return null;
-
-    let chartData = [];
-    let volumeData = [];
-
-    for (let i = 0; i < timestamps.length; i++) {
+    
+    let klines = [];
+    for (let i = 0; i < result.timestamp.length; i++) {
       if (quote.close[i] === null) continue;
-      
-      const date = new Date(timestamps[i] * 1000);
-      const timeStr = date.toISOString().split('T')[0]; // 轉為 YYYY-MM-DD
-
-      chartData.push({
-        time: timeStr,
-        open: quote.open[i],
-        high: quote.high[i],
-        low: quote.low[i],
+      const date = new Date(result.timestamp[i] * 1000);
+      klines.push({
+        date: date.toISOString().split('T')[0],
         close: quote.close[i],
-      });
-
-      volumeData.push({
-        time: timeStr,
-        value: quote.volume[i],
-        color: quote.close[i] >= quote.open[i] ? 'rgba(0, 230, 118, 0.4)' : 'rgba(255, 61, 90, 0.4)'
+        high: quote.high[i],
+        volume: quote.volume[i]
       });
     }
-    return { chartData, volumeData };
-  } catch (e) {
-    console.error("解析資料過程發生錯誤", e);
-    return null;
-  }
+    return klines;
+  } catch (e) { return null; }
 }
 
-// 計算 20 日移動平均線 (SMA)
-function calculateSMA(data, period) {
-  const sma = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < period - 1) continue;
-    let sum = 0;
-    for (let j = 0; j < period; j++) {
-      sum += data[i - j].close;
-    }
-    sma.push({ time: data[i].time, value: sum / period });
-  }
-  return sma;
+// 基本面暫無免費 API，維持模擬
+function fetchMockFundamentalData() {
+  return { latestEps: parseFloat((Math.random() * 5 - 0.5).toFixed(2)) };
 }
 
-// 建立自建的輕量級圖表
-async function buildChart(symbol) {
-  const loading = document.getElementById('tvLoading');
-  const loadTxt = document.getElementById('loadTxt');
-  loading.classList.remove('hidden');
-  loadTxt.innerText = `正在為 ${displaySym(symbol)} 抓取歷史資料...`;
+// ============================================================================
+// 2. 核心全市場掃描邏輯
+// ============================================================================
+async function runScreener() {
+  const btn = document.getElementById('runBtn');
+  const thead = document.getElementById('tableHead');
+  const tbody = document.getElementById('resultBody');
+  
+  // 取得第一層濾網設定
+  const filters = {
+    optForeignDay: document.getElementById('optForeignDay').checked,
+    valForeignDay: parseInt(document.getElementById('valForeignDay').value, 10),
+    optForeignCons: document.getElementById('optForeignCons').checked,
+    valForeignCons: parseInt(document.getElementById('valForeignCons').value, 10),
+    optTrustDay: document.getElementById('optTrustDay').checked,
+    valTrustDay: parseInt(document.getElementById('valTrustDay').value, 10),
+    optTrustCons: document.getElementById('optTrustCons').checked,
+    valTrustCons: parseInt(document.getElementById('valTrustCons').value, 10),
+    
+    useEps: document.getElementById('chkEps').checked,
+    useMA: document.getElementById('chkMA').checked,
+    ma20: document.getElementById('optMA20').checked,
+    ma40: document.getElementById('optMA40').checked,
+    ma60: document.getElementById('optMA60').checked,
+    useHigh: document.getElementById('chkHigh').checked,
+    useVol: document.getElementById('chkVol').checked,
+    volVal: parseFloat(document.getElementById('valVol').value)
+  };
 
-  const container = document.getElementById('custom-chart-container');
-  container.innerHTML = ''; // 清空舊圖表
-
-  // 1. 抓取資料
-  const data = await fetchYahooData(symbol);
-
-  if (!data || data.chartData.length === 0) {
-    container.innerHTML = `<div style="color:var(--red); text-align:center; padding-top:100px; font-family:'Space Mono',monospace;">網路請求失敗或無此代碼資料，請稍後再試。</div>`;
-    loading.classList.add('hidden');
+  if (!filters.optForeignDay && !filters.optForeignCons && !filters.optTrustDay && !filters.optTrustCons) {
+    alert("第一層魚池濾網：請至少勾選一項法人籌碼條件！");
     return;
   }
 
-  // 2. 初始化 Lightweight Charts
-  lwChart = LightweightCharts.createChart(container, {
-    layout: {
-      background: { type: 'solid', color: '#0a0e17' },
-      textColor: '#4a6080',
-    },
-    grid: {
-      vertLines: { color: '#1e2d47' },
-      horzLines: { color: '#1e2d47' },
-    },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-    },
-    rightPriceScale: {
-      borderColor: '#1e2d47',
-    },
-    timeScale: {
-      borderColor: '#1e2d47',
-      timeVisible: true,
-    },
-  });
+  // --- 動態生成表頭 ---
+  let thHtml = `<tr><th>標的名稱</th><th>最新收盤價</th><th>第一層：籌碼魚池 (入選原因)</th>`;
+  if (filters.useEps) thHtml += `<th>基本面</th>`;
+  if (filters.useMA && (filters.ma20 || filters.ma40 || filters.ma60)) thHtml += `<th>均線檢驗</th>`;
+  if (filters.useHigh) thHtml += `<th>創 10日高</th>`;
+  if (filters.useVol) thHtml += `<th>異常爆量 (> ${filters.volVal}x)</th>`;
+  thHtml += `<th>最終判定</th></tr>`;
+  thead.innerHTML = thHtml;
 
-  // 監聽視窗大小改變以自動調整圖表
-  new ResizeObserver(entries => {
-    if (entries.length === 0 || entries[0].target !== container) return;
-    const newRect = entries[0].contentRect;
-    lwChart.applyOptions({ height: newRect.height, width: newRect.width });
-  }).observe(container);
+  btn.disabled = true;
+  tbody.innerHTML = '';
 
-  // 3. 繪製 K 線 (Candlestick)
-  candlestickSeries = lwChart.addCandlestickSeries({
-    upColor: '#00e676',
-    downColor: '#ff3d5a',
-    borderVisible: false,
-    wickUpColor: '#00e676',
-    wickDownColor: '#ff3d5a',
-  });
-  candlestickSeries.setData(data.chartData);
+  // ==========================================
+  // Step 1: 建立魚池 (向 GAS 請求真實運算數據)
+  // ==========================================
+  log(`[步驟 1/2] 正在向您的專屬資料庫請求 1700 檔法人的即時精算數據...<span class="loader"></span>`);
+  
+  let twseInstData = {};
+  try {
+    const res = await fetch(GAS_API_URL + "?action=getInst");
+    twseInstData = await res.json();
+    if (twseInstData.error) {
+      log(`❌ 資料庫錯誤: ${twseInstData.error} (請確認是否有在 GAS 執行 backfill 函數)`);
+      btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    log(`❌ 連線後端 API 失敗，無法建立魚池。請確認是否已「部署為新版本」。`);
+    btn.disabled = false;
+    return;
+  }
 
-  // 4. 繪製成交量 (Volume) 作為底部覆蓋層
-  volumeSeries = lwChart.addHistogramSeries({
-    color: '#26a69a',
-    priceFormat: { type: 'volume' },
-    priceScaleId: '', // 設置為不影響主價格軸的覆蓋層
-    scaleMargins: { top: 0.8, bottom: 0 },
-  });
-  if (showVolume) volumeSeries.setData(data.volumeData);
+  // 根據勾選的【任一】條件篩選魚池
+  let stockPool = [];
+  for (let code in twseInstData) {
+    let inst = twseInstData[code];
+    let pass = false;
+    let poolReasons = [];
+    let sortWeight = 0; // 用於如果魚池太大時的排序依據
 
-  // 5. 繪製 MA20 均線
-  const ma20Data = calculateSMA(data.chartData, 20);
-  maSeries = lwChart.addLineSeries({
-    color: '#ffd600',
-    lineWidth: 2,
-    crosshairMarkerVisible: false,
-  });
-  if (showMA) maSeries.setData(ma20Data);
+    let fDay = inst.foreignBuyLots || 0;
+    let tDay = inst.trustBuyLots || 0;
+    let fCons = inst.foreignConsDays || 0;
+    let tCons = inst.trustConsDays || 0;
 
-  // 6. 更新頂部真實價格資訊！
-  const latest = data.chartData[data.chartData.length - 1];
-  const prev = data.chartData[data.chartData.length - 2];
-  if (latest && prev) {
-    const chg = latest.close - prev.close;
-    const chgPct = (chg / prev.close) * 100;
+    if (filters.optForeignDay && fDay >= filters.valForeignDay) {
+      pass = true; poolReasons.push(`外資買 ${fDay}張`); sortWeight += fDay;
+    }
+    if (filters.optForeignCons && fCons >= filters.valForeignCons) {
+      pass = true; poolReasons.push(`外資連買 ${fCons}日`); sortWeight += fCons * 200;
+    }
+    if (filters.optTrustDay && tDay >= filters.valTrustDay) {
+      pass = true; poolReasons.push(`投信買 ${tDay}張`); sortWeight += tDay;
+    }
+    if (filters.optTrustCons && tCons >= filters.valTrustCons) {
+      pass = true; poolReasons.push(`投信連買 ${tCons}日`); sortWeight += tCons * 200;
+    }
     
-    document.getElementById('symPrice').textContent = latest.close.toFixed(2);
-    const chgEl = document.getElementById('symChg');
-    chgEl.textContent = `${chg > 0 ? '+' : ''}${chg.toFixed(2)} (${chgPct.toFixed(2)}%)`;
-    chgEl.className = `sym-chg ${chg >= 0 ? 'up' : 'dn'}`;
+    if (pass) {
+      stockPool.push({
+        symbol: code + '.TW',
+        code: code,
+        name: inst.name || code,
+        reasons: poolReasons,
+        weight: sortWeight
+      });
+    }
   }
 
-  updateSymBar(symbol);
-  loading.classList.add('hidden');
-}
-
-// ════════════════════════════════════════════════════════════════
-//  UI 更新與互動
-// ════════════════════════════════════════════════════════════════
-function openOfficialChart() {
-  window.open(`https://tw.tradingview.com/chart/?symbol=${curSym}`, '_blank');
-}
-
-const SYM_INFO = {
-  'NASDAQ:AAPL': { name:'Apple Inc.', exch:'NASDAQ' },
-  'NASDAQ:NVDA': { name:'NVIDIA', exch:'NASDAQ' },
-  'TWSE:2330':   { name:'台積電', exch:'TWSE' },
-  'TWSE:2317':   { name:'鴻海', exch:'TWSE' },
-  'TWSE:0050':   { name:'元大台灣50', exch:'TWSE' }
-};
-
-function updateSymBar(tvSym) {
-  const info = SYM_INFO[tvSym] || {};
-  document.getElementById('symBig').textContent  = displaySym(tvSym);
-  document.getElementById('symFull').textContent = (info.name || '') + ' ' + (tvSym.split(':')[0] || '');
-  document.getElementById('symMeta').innerHTML = `
-    <div class="sym-stat"><div class="sym-stat-l">伺服器</div><div class="sym-stat-v" style="color:var(--yellow)">Yahoo Data API</div></div>`;
-}
-
-function renderWatchlist() {
-  document.getElementById('wlList').innerHTML = watchlist.map(tvSym => {
-    const info = SYM_INFO[tvSym] || {};
-    return `
-      <div class="witem ${tvSym===curSym?'active':''}" onclick="selectSym('${tvSym}')">
-        <div class="wi-row1">
-          <span class="wi-sym">${displaySym(tvSym)}</span>
-          <button class="wi-rm" onclick="rmSym('${tvSym}',event)" title="移除">✕</button>
-        </div>
-        <div class="wi-name">${info.name || tvSym.split(':')[0]}</div>
-      </div>`;
-  }).join('');
-}
-
-function updateTicker() {
-  const items = ['AAPL Apple', 'NVDA NVIDIA', '2330 台積電', '0050 台灣50', '2317 鴻海'].map(txt => `
-    <span class="titem">
-      <span style="color:var(--accent)">${txt.split(' ')[0]}</span>
-      <span style="color:var(--text)">${txt.split(' ')[1]}</span>
-    </span>`).join('');
-  document.getElementById('tickerEl').innerHTML = items + items + items;
-}
-
-// 控制面板：顯示隱藏成交量與均線
-function toggleVolume() {
-  showVolume = !showVolume;
-  const btn = document.getElementById('tog-vol');
-  showVolume ? btn.classList.add('active') : btn.classList.remove('active');
-  if (volumeSeries) {
-    // 重新繪製整張圖是最穩定的作法
-    buildChart(curSym);
+  // 防呆機制：如果遇到法人大買日，魚池可能有幾百檔，為了保護 Yahoo API，強制截斷
+  const MAX_POOL_SIZE = 40;
+  let originalPoolSize = stockPool.length;
+  if (stockPool.length > MAX_POOL_SIZE) {
+    // 依據買超權重排序，留下最強的前 40 檔
+    stockPool.sort((a, b) => b.weight - a.weight);
+    stockPool = stockPool.slice(0, MAX_POOL_SIZE);
   }
-}
 
-function toggleMA() {
-  showMA = !showMA;
-  const btn = document.getElementById('tog-ma');
-  showMA ? btn.classList.add('active') : btn.classList.remove('active');
-  if (maSeries) {
-    buildChart(curSym);
+  if (stockPool.length === 0) {
+    log(`✅ [步驟 1/2 完成] 資料庫中無任何標的符合您的籌碼設定標準。`);
+    btn.disabled = false;
+    btn.innerHTML = '🚀 重新啟動';
+    return;
   }
-}
 
-function selectSym(tvSym) {
-  curSym = tvSym;
-  renderWatchlist();
-  buildChart(tvSym);
-}
+  let poolMsg = `✅ [步驟 1/2 完成] 成功從全市場撈出 <span class="highlight">${originalPoolSize}</span> 檔籌碼達標股票。`;
+  if (originalPoolSize > MAX_POOL_SIZE) poolMsg += ` (已自動挑選強度最高的前 ${MAX_POOL_SIZE} 檔進入技術驗證)`;
+  log(poolMsg + `<br>[步驟 2/2] 正在逐一驗證 K 線發動訊號...<span class="loader"></span>`);
 
-function addFromSearch() {
-  const inp = document.getElementById('searchInput');
-  if (!inp.value.trim()) return;
-  const tvSym = toTVSymbol(inp.value);
-  if (!watchlist.includes(tvSym)) {
-    watchlist.push(tvSym);
-    saveWL();
-    toast('✓ 已加入 ' + displaySym(tvSym));
+  // ==========================================
+  // Step 2: 針對魚池名單驗證技術面
+  // ==========================================
+  let processedCount = 0;
+
+  for (const stock of stockPool) {
+    processedCount++;
+    log(`${poolMsg}<br>[步驟 2/2] 驗證發動訊號... (${processedCount}/${stockPool.length}) [${stock.name}]`);
+    
+    const klines = await fetchRealMarketData(stock.symbol);
+    const fundamentalData = fetchMockFundamentalData();
+    
+    if (!klines || klines.length < 61) continue; 
+
+    const today = klines[klines.length - 1];
+    let finalPass = true;
+
+    const badge = (passed, text, subtext='') => `<div class="status-badge ${passed ? 'status-pass' : 'status-fail'}">${text} ${subtext ? `<span style="font-size:10px;opacity:0.7">${subtext}</span>`:''}</div>`;
+    
+    // 顯示魚池入選原因 (第一層結果)
+    let instHtml = stock.reasons.map(r => {
+      let parts = r.split(' ');
+      return badge(true, parts[0], parts[1]);
+    }).join('');
+
+    // 1. EPS (第二層)
+    let isEpsPass = fundamentalData.latestEps > 0;
+    if (filters.useEps && !isEpsPass) finalPass = false;
+
+    // 2. 均線 (多選)
+    let maHtml = '';
+    let isMAPass = true;
+    const calcMA = (days) => {
+      let sum = 0;
+      for (let i = 0; i < days; i++) sum += klines[klines.length - 1 - i].close;
+      return sum / days;
+    };
+
+    if (filters.useMA) {
+      if (filters.ma20) { let p = today.close > calcMA(20); maHtml += badge(p, '20MA'); if (!p) isMAPass = false; }
+      if (filters.ma40) { let p = today.close > calcMA(40); maHtml += badge(p, '40MA'); if (!p) isMAPass = false; }
+      if (filters.ma60) { let p = today.close > calcMA(60); maHtml += badge(p, '60MA'); if (!p) isMAPass = false; }
+      if (!isMAPass) finalPass = false;
+    }
+
+    // 3. 創高
+    let highest10 = 0;
+    for (let i = 1; i <= 10; i++) if (klines[klines.length - 1 - i].high > highest10) highest10 = klines[klines.length - 1 - i].high;
+    let isHighPass = today.close >= highest10;
+    if (filters.useHigh && !isHighPass) finalPass = false;
+
+    // 4. 爆量
+    let sumVol5 = 0;
+    for (let i = 1; i <= 5; i++) sumVol5 += klines[klines.length - 1 - i].volume;
+    let isVolPass = today.volume > ((sumVol5 / 5) * filters.volVal);
+    if (filters.useVol && !isVolPass) finalPass = false;
+
+    // --- 組合表格 HTML ---
+    let trHtml = `
+      <td>
+        <div class="sym-col"><span class="sym">${stock.code}</span><span class="name">${stock.name}</span></div>
+      </td>
+      <td>
+        <div class="price-col"><span class="price">${today.close.toFixed(2)}</span><span class="date">${today.date}</span></div>
+      </td>
+      <td><div style="display:flex; flex-direction:column; gap:4px;">${instHtml}</div></td>
+    `;
+
+    if (filters.useEps) trHtml += `<td>${badge(isEpsPass, isEpsPass ? '合格' : '虧損', `EPS:${fundamentalData.latestEps}`)}</td>`;
+    
+    if (filters.useMA && (filters.ma20 || filters.ma40 || filters.ma60)) {
+      trHtml += `<td><div style="display:flex; flex-direction:column; gap:4px;">${maHtml}</div></td>`;
+    }
+    
+    if (filters.useHigh) trHtml += `<td>${badge(isHighPass, isHighPass ? '強勢' : '盤整')}</td>`;
+    if (filters.useVol) trHtml += `<td>${badge(isVolPass, isVolPass ? '爆量' : '量縮')}</td>`;
+
+    trHtml += `<td>${finalPass ? '<span class="final-pass">🚀 發動買點</span>' : '<span class="final-fail">觀察</span>'}</td>`;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = trHtml;
+    tbody.appendChild(tr);
+    
+    // API 速率保護：針對雅虎財經 API 的延遲
+    await new Promise(r => setTimeout(r, 400));
   }
-  inp.value = '';
-  selectSym(tvSym);
+
+  log(`✅ 全市場掃描任務完成！魚池共篩出 ${Math.min(stockPool.length, MAX_POOL_SIZE)} 檔，已全數驗證完畢。`);
+  btn.disabled = false;
+  btn.innerHTML = '🚀 重新啟動全市場掃描';
 }
-
-function rmSym(tvSym, ev) {
-  ev.stopPropagation();
-  watchlist = watchlist.filter(s => s !== tvSym);
-  saveWL();
-  if (curSym === tvSym && watchlist.length) selectSym(watchlist[0]);
-  renderWatchlist();
-  toast('已移除', 'ng');
-}
-
-function clearAll() {
-  if (!confirm('確定清空自選清單？')) return;
-  watchlist = []; saveWL(); renderWatchlist();
-  document.getElementById('custom-chart-container').innerHTML = `
-    <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg)">
-      <div style="font-size:36px">📈</div>
-      <div style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text)">請加入股票開始監控</div>
-      <div style="font-size:11px;color:var(--dim);text-align:center;line-height:2">
-        美股：AAPL · NVDA · MSFT · TSLA<br>
-        台股：2330 · 0050 · 2317 · 0056
-      </div>
-    </div>`;
-}
-
-function saveWL() { localStorage.setItem('sp_wl_v5', JSON.stringify(watchlist)); }
-
-function toast(msg, t='ok') {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = `toast show ${t}`;
-  setTimeout(()=>el.className='toast', 2500);
-}
-
-function showHelp() { document.getElementById('helpModal').classList.add('show'); }
-function hideHelp() { document.getElementById('helpModal').classList.remove('show'); }
-setInterval(() => {
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString('zh-TW', {hour12:false});
-}, 1000);
-
-document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') addFromSearch(); });
-
-window.onload = function() {
-  updateTicker();
-  renderWatchlist();
-  if (watchlist.length) {
-    buildChart(curSym);
-  }
-};
 </script>
+
 </body>
 </html>
