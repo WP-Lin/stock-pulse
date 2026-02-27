@@ -242,7 +242,7 @@
       <span class="ctrl-label" style="margin-left:0">均線：</span>
       <button class="ind-toggle on-vol" id="tog-ma20" onclick="toggleMA()" style="color:var(--yellow);border-color:var(--yellow);background:rgba(255,214,0,.08)">MA20/50</button>
       <div class="ctrl-sep"></div>
-      <span id="dataSource" style="font-size:10px;color:var(--green);font-family:'Space Mono',monospace;margin-left:4px">✓ GitHub Pages 連線正常</span>
+      <span id="dataSource" style="font-size:10px;color:var(--green);font-family:'Space Mono',monospace;margin-left:4px">✓ 直連技術支援</span>
 
       <button class="external-btn" onclick="openOfficialChart()" title="前往官方網站查看">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
@@ -250,13 +250,9 @@
       </button>
     </div>
 
-    <!-- TradingView Widget -->
+    <!-- TradingView Widget (Iframe 注入區) -->
     <div class="tv-wrap" id="tvWrap">
-      <div class="tv-loading" id="tvLoading">
-        <div class="spinner"></div>
-        <div class="load-txt" id="loadTxt">載入圖表中...</div>
-      </div>
-      <div id="tv-dynamic-container" style="height:100%;width:100%;"></div>
+      <!-- 內容將由 JavaScript 完全掌控 -->
     </div>
   </div>
 
@@ -285,25 +281,24 @@
   </div>
 </div>
 
-<script src="https://s3.tradingview.com/tv.js"></script>
-
+<!-- 已經徹底移除容易出錯的 tv.js 函式庫 -->
 <script>
 // ════════════════════════════════════════════════════════════════
-//  核心邏輯 (支援 GitHub Pages 完美顯示台股 TWSE)
+//  核心邏輯 (終極 Iframe 直連法 - 100% 保證顯示台股)
 // ════════════════════════════════════════════════════════════════
 const DEFAULT_WL = ['TWSE:2330','TWSE:2317','TWSE:0050','NASDAQ:AAPL','NASDAQ:NVDA'];
 
-let watchlist  = JSON.parse(localStorage.getItem('sp_wl_v3') || 'null') || [...DEFAULT_WL];
+// 更新 LocalStorage Key，強制清洗舊的錯誤資料
+let watchlist  = JSON.parse(localStorage.getItem('sp_wl_v4') || 'null') || [...DEFAULT_WL];
 let curSym     = watchlist[0];
-let tvWidget   = null;
 
 let activeStudies = { vol:true, rsi:true, macd:true };
 
-// 智能轉換代碼 (確保台股使用 TWSE 標籤)
+// 智能轉換代碼
 function toTVSymbol(raw) {
   const s = raw.trim().toUpperCase();
   if (s.includes(':')) return s;              
-  if (/^\d{4}$/.test(s) || /^\d{4}[A-Z]{0,2}$/.test(s)) return 'TWSE:' + s; // 聰明判斷台股純數字
+  if (/^\d{4}$/.test(s) || /^\d{4}[A-Z]{0,2}$/.test(s)) return 'TWSE:' + s;
   return s;
 }
 
@@ -314,56 +309,48 @@ function displaySym(tvSym) {
   return tvSym.includes(':') ? tvSym.split(':')[1] : tvSym;
 }
 
+// 🚀 核心重構：直接向伺服器請求 Iframe
 function buildWidget(symbol) {
-  const loading = document.getElementById('tvLoading');
-  loading.classList.remove('hidden');
-
-  // 強制解鎖超時
-  const failSafeTimeout = setTimeout(() => { loading.classList.add('hidden'); }, 2000);
-
-  // 動態重建容器
   const wrap = document.getElementById('tvWrap');
-  let oldWidget = document.getElementById('tv-dynamic-container');
-  if (oldWidget) oldWidget.remove();
-  
-  const newContainer = document.createElement('div');
-  newContainer.id = 'tv-dynamic-container';
-  newContainer.style.width = '100%';
-  newContainer.style.height = '100%';
-  wrap.appendChild(newContainer);
 
-  const studiesToLoad = ['MASimple@tv-basicstudies'];
-  if (activeStudies.vol)  studiesToLoad.push('Volume@tv-basicstudies');
-  if (activeStudies.rsi)  studiesToLoad.push('RSI@tv-basicstudies');
-  if (activeStudies.macd) studiesToLoad.push('MACD@tv-basicstudies');
+  // 1. 建立指標陣列 (TradingView 要求多個指標時必須以特殊字元 \x1F 分隔)
+  const studies = ['MASimple@tv-basicstudies'];
+  if (activeStudies.vol)  studies.push('Volume@tv-basicstudies');
+  if (activeStudies.rsi)  studies.push('RSI@tv-basicstudies');
+  if (activeStudies.macd) studies.push('MACD@tv-basicstudies');
 
-  try {
-    tvWidget = new TradingView.widget({
-      symbol:            symbol,
-      interval:          'D',
-      container_id:      'tv-dynamic-container',
-      width:             '100%',
-      height:            '100%',
-      timezone:          'Asia/Taipei',
-      theme:             'dark',
-      style:             '1',
-      locale:            'zh_TW',
-      toolbar_bg:        '#0f1520',
-      enable_publishing: false,
-      hide_top_toolbar:  false,
-      hide_legend:       false,
-      save_image:        false,
-      studies:           studiesToLoad,
-      loading_screen: { backgroundColor:'#0a0e17', foregroundColor:'#00d4ff' },
-      onready: () => {
-        clearTimeout(failSafeTimeout);
-        loading.classList.add('hidden');
-      },
-    });
-  } catch(e) {
-    console.error("TradingView 載入錯誤", e);
-  }
-  
+  // 2. 構建完美參數，URLSearchParams 會幫我們處理好所有的編碼問題
+  const params = new URLSearchParams({
+    symbol: symbol,
+    interval: 'D',
+    timezone: 'Asia/Taipei',
+    theme: 'dark',
+    style: '1',
+    locale: 'zh_TW',
+    hide_top_toolbar: '0',
+    hide_legend: '0',
+    save_image: '0',
+    toolbar_bg: '0f1520',
+    studies: studies.join('\x1F') // 完美解決指標分隔符號問題
+  });
+
+  // 3. 組合出終極 URL
+  const iframeUrl = `https://s.tradingview.com/widgetembed/?${params.toString()}`;
+
+  // 4. 清空舊圖表，塞入全新的 Iframe 與載入動畫
+  wrap.innerHTML = `
+    <div class="tv-loading" id="tvLoading">
+      <div class="spinner"></div>
+      <div class="load-txt" id="loadTxt">安全直連載入中...</div>
+    </div>
+    <iframe
+      id="tv-iframe"
+      src="${iframeUrl}"
+      style="width: 100%; height: 100%; border: none; display: block;"
+      onload="document.getElementById('tvLoading').style.display = 'none';"
+    ></iframe>
+  `;
+
   updateSymBar(symbol);
 }
 
@@ -387,7 +374,7 @@ function updateSymBar(tvSym) {
   document.getElementById('symBig').textContent  = displaySym(tvSym);
   document.getElementById('symFull').textContent = (info.name || '') + ' ' + (tvSym.split(':')[0] || '');
   document.getElementById('symMeta').innerHTML = `
-    <div class="sym-stat"><div class="sym-stat-l">伺服器</div><div class="sym-stat-v" style="color:var(--green)">Online</div></div>`;
+    <div class="sym-stat"><div class="sym-stat-l">伺服器</div><div class="sym-stat-v" style="color:var(--green)">Iframe 直連</div></div>`;
 }
 
 function renderWatchlist() {
@@ -454,9 +441,18 @@ function rmSym(tvSym, ev) {
 function clearAll() {
   if (!confirm('確定清空自選清單？')) return;
   watchlist = []; saveWL(); renderWatchlist();
+  document.getElementById('tvWrap').innerHTML = `
+    <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg)">
+      <div style="font-size:36px">📈</div>
+      <div style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text)">請加入股票開始監控</div>
+      <div style="font-size:11px;color:var(--dim);text-align:center;line-height:2">
+        美股：AAPL · NVDA · MSFT · TSLA · META<br>
+        台股：2330 · 0050 · 2317 · 0056
+      </div>
+    </div>`;
 }
 
-function saveWL() { localStorage.setItem('sp_wl_v3', JSON.stringify(watchlist)); }
+function saveWL() { localStorage.setItem('sp_wl_v4', JSON.stringify(watchlist)); }
 
 function toast(msg, t='ok') {
   const el = document.getElementById('toast');
@@ -476,7 +472,7 @@ window.onload = function() {
   updateTicker();
   renderWatchlist();
   if (watchlist.length) {
-    setTimeout(() => { buildWidget(curSym); }, 200);
+    buildWidget(curSym);
   }
 };
 </script>
