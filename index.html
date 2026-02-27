@@ -161,7 +161,6 @@
   .ticker-inner { display:flex; gap:28px; animation:ticker 60s linear infinite; white-space:nowrap; padding-left:100%; }
   @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
   .titem { font-family:'Space Mono',monospace; font-size:11px; display:flex; gap:7px; align-items:center; }
-  .titem-dot { width:5px; height:5px; border-radius:50%; }
 
   /* ── Toast ── */
   .toast { position:fixed; top:64px; right:16px; padding:8px 15px; border-radius:6px; font-size:12px; font-family:'Space Mono',monospace; z-index:200; opacity:0; transition:opacity .3s; pointer-events:none; }
@@ -184,14 +183,13 @@
 <body>
 
 <div class="app">
-
   <!-- ═══ HEADER ═══ -->
   <header>
     <div class="logo">STOCK<span>PULSE</span></div>
     <div class="search-row">
       <div class="sbox">
         <svg width="13" height="13" fill="none" stroke="#4a6080" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input id="searchInput" placeholder="AAPL · NVDA · 2330.TW · 0050.TW …" />
+        <input id="searchInput" placeholder="代碼 如 2330 / AAPL" />
       </div>
       <button class="pill-btn" onclick="addFromSearch()">+ 加入</button>
       <button class="pill-btn gray" onclick="showHelp()">？ 說明</button>
@@ -214,16 +212,14 @@
     <div class="wl-list" id="wlList"></div>
     <div class="wl-footer">
       <div class="add-hint">
-        台股加 <code>.TW</code><br>
-        例：<code>2330.TW</code> <code>0050.TW</code>
+        支援純數字輸入<br>
+        例：<code>2330</code> 會自動轉換
       </div>
     </div>
   </aside>
 
   <!-- ═══ MAIN CHART ═══ -->
   <div class="chart-main">
-
-    <!-- Symbol info bar -->
     <div class="sym-bar" id="symBar">
       <div>
         <div class="sym-name-big" id="symBig">--</div>
@@ -244,15 +240,13 @@
       <button class="ind-toggle on-macd" id="tog-macd" onclick="toggleIndicator('macd')">MACD</button>
       <div class="ctrl-sep"></div>
       <span class="ctrl-label" style="margin-left:0">均線：</span>
-      <button class="ind-toggle on-vol" id="tog-ma20" onclick="toggleMA('EMA@tv-basicstudies','20')" style="color:var(--yellow);border-color:var(--yellow);background:rgba(255,214,0,.08)">MA20</button>
-      <button class="ind-toggle on-vol" id="tog-ma50" onclick="toggleMA('EMA@tv-basicstudies','50')" style="color:#7b5ea7;border-color:#7b5ea7;background:rgba(123,94,167,.1)">MA50</button>
+      <button class="ind-toggle on-vol" id="tog-ma20" onclick="toggleMA()" style="color:var(--yellow);border-color:var(--yellow);background:rgba(255,214,0,.08)">MA20/50</button>
       <div class="ctrl-sep"></div>
-      <span id="dataSource" style="font-size:10px;color:var(--green);font-family:'Space Mono',monospace;margin-left:4px">✓ TradingView 即時資料</span>
+      <span id="dataSource" style="font-size:10px;color:var(--green);font-family:'Space Mono',monospace;margin-left:4px">✓ GitHub Pages 連線正常</span>
 
-      <!-- 備援機制：另開視窗按鈕 -->
-      <button class="external-btn" onclick="openOfficialChart()" title="若圖表無法載入，點此前往官方網站查看">
+      <button class="external-btn" onclick="openOfficialChart()" title="前往官方網站查看">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-        另開官方圖表
+        全螢幕看盤
       </button>
     </div>
 
@@ -261,279 +255,174 @@
       <div class="tv-loading" id="tvLoading">
         <div class="spinner"></div>
         <div class="load-txt" id="loadTxt">載入圖表中...</div>
-        <div style="font-size:10px;color:var(--dim);margin-top:4px">由 TradingView 提供即時資料</div>
       </div>
       <div id="tv-dynamic-container" style="height:100%;width:100%;"></div>
     </div>
-
-  </div><!-- /chart-main -->
+  </div>
 
   <!-- ═══ TICKER ═══ -->
   <div class="ticker-bar">
     <div class="ticker-inner" id="tickerEl">
-      <span class="titem"><span style="color:var(--dim)">即時行情</span></span>
+      <span class="titem"><span style="color:var(--dim)">即時行情跑馬燈</span></span>
     </div>
   </div>
 
-</div><!-- /app -->
+</div>
 
-<!-- ═══ TOAST ═══ -->
+<!-- ═══ TOAST & MODAL ═══ -->
 <div class="toast" id="toast"></div>
-
-<!-- ═══ HELP MODAL ═══ -->
 <div class="modal-bg" id="helpModal" onclick="if(event.target===this)hideHelp()">
   <div class="modal">
     <h3>📘 股票代號格式說明</h3>
-    <p>在搜尋框輸入代號後按 Enter 或點「+ 加入」即可新增到自選清單。</p>
+    <p>系統已支援智能辨識，輸入代號後按 Enter 即可。</p>
     <table class="sym-table">
       <tr><th>市場</th><th>格式</th><th>範例</th></tr>
-      <tr><td>美股</td><td>直接輸入</td><td>AAPL · NVDA · MSFT · GOOGL · TSLA</td></tr>
-      <tr><td>台股</td><td>數字 + .TW</td><td>2330.TW · 2317.TW · 0050.TW · 0056.TW</td></tr>
-      <tr><td>港股</td><td>數字 + .HK</td><td>0700.HK（騰訊）</td></tr>
-      <tr><td>日股</td><td>數字 + .T</td><td>7203.T（Toyota）</td></tr>
-      <tr><td>ETF</td><td>直接輸入</td><td>SPY · QQQ · VTI</td></tr>
+      <tr><td>美股</td><td>直接輸入</td><td>AAPL · NVDA · TSLA</td></tr>
+      <tr><td>台股</td><td>純數字</td><td>2330 · 0050 · 2317</td></tr>
+      <tr><td>加密貨幣</td><td>幣種+USDT</td><td>BTCUSDT</td></tr>
     </table>
-    <p style="color:var(--green);font-size:11px">✓ 所有圖表資料由 TradingView 提供，無需安裝任何程式，直接在瀏覽器即可使用。</p>
-    <button class="pill-btn" onclick="hideHelp()" style="margin-top:4px">關閉</button>
+    <button class="pill-btn" onclick="hideHelp()" style="margin-top:10px">關閉</button>
   </div>
 </div>
 
-<!-- TradingView library -->
 <script src="https://s3.tradingview.com/tv.js"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════════
-//  STATE
+//  核心邏輯 (支援 GitHub Pages 完美顯示台股 TWSE)
 // ════════════════════════════════════════════════════════════════
-const DEFAULT_WL = ['NASDAQ:AAPL','NASDAQ:NVDA','NASDAQ:MSFT','TWSE:2330','TWSE:0050'];
+const DEFAULT_WL = ['TWSE:2330','TWSE:2317','TWSE:0050','NASDAQ:AAPL','NASDAQ:NVDA'];
 
-let watchlist  = JSON.parse(localStorage.getItem('sp_wl5') || 'null') || [...DEFAULT_WL];
+let watchlist  = JSON.parse(localStorage.getItem('sp_wl_v3') || 'null') || [...DEFAULT_WL];
 let curSym     = watchlist[0];
 let tvWidget   = null;
 
-// Indicator state (what's currently shown in TradingView)
 let activeStudies = { vol:true, rsi:true, macd:true };
-let studyIds      = { vol:null, rsi:null, macd:null };
 
-// ════════════════════════════════════════════════════════════════
-//  SYMBOL HELPERS
-// ════════════════════════════════════════════════════════════════
-// Convert user input → TradingView symbol format
+// 智能轉換代碼 (確保台股使用 TWSE 標籤)
 function toTVSymbol(raw) {
   const s = raw.trim().toUpperCase();
   if (s.includes(':')) return s;              
-  if (s.endsWith('.TW'))  return 'TWSE:' + s.replace('.TW','');
-  if (s.endsWith('.TWO')) return 'TPEX:' + s.replace('.TWO','');
-  if (s.endsWith('.HK'))  return 'HKEX:' + s.replace('.HK','');
-  if (s.endsWith('.T'))   return 'TSE:' + s.replace('.T','');    
+  if (/^\d{4}$/.test(s) || /^\d{4}[A-Z]{0,2}$/.test(s)) return 'TWSE:' + s; // 聰明判斷台股純數字
   return s;
 }
 
-// Human-readable display symbol
 function displaySym(tvSym) {
   if (!tvSym) return '';
-  if (tvSym.startsWith('TWSE:'))  return tvSym.replace('TWSE:','') + '.TW';
-  if (tvSym.startsWith('TPEX:'))  return tvSym.replace('TPEX:','') + '.TWO';
-  if (tvSym.startsWith('TSE:'))   return tvSym.replace('TSE:','') + '.TW'; // for backwards compatibility
-  if (tvSym.startsWith('HKEX:')) return tvSym.replace('HKEX:','') + '.HK';
+  if (tvSym.startsWith('TWSE:'))  return tvSym.replace('TWSE:','');
+  if (tvSym.startsWith('TPEX:'))  return tvSym.replace('TPEX:','');
   return tvSym.includes(':') ? tvSym.split(':')[1] : tvSym;
 }
 
-// ════════════════════════════════════════════════════════════════
-//  TRADINGVIEW WIDGET
-// ════════════════════════════════════════════════════════════════
 function buildWidget(symbol) {
   const loading = document.getElementById('tvLoading');
-  const loadTxt = document.getElementById('loadTxt');
-  
-  // 【智能警示】偵測是否為本地環境且選擇台股
-  const isLocalFile = window.location.protocol === 'file:';
-  const isTWStock = symbol.startsWith('TWSE:') || symbol.startsWith('TPEX:');
-  
-  if (isLocalFile && isTWStock) {
-    loadTxt.innerHTML = '載入圖表中...<br><span style="color:var(--red);font-size:10px;margin-top:6px;display:block;">⚠️ 偵測到本地環境，台股可能因交易所限制被退回 AAPL。<br>若被擋住，請點選右上角「另開官方圖表」查看。</span>';
-  } else {
-    loadTxt.innerHTML = '載入圖表中...';
-  }
-  
   loading.classList.remove('hidden');
 
-  // 強制解鎖超時：2.5秒後若沒收到成功訊號，強制移除遮罩讓您操作
-  const failSafeTimeout = setTimeout(() => {
-    loading.classList.add('hidden');
-  }, 2500);
+  // 強制解鎖超時
+  const failSafeTimeout = setTimeout(() => { loading.classList.add('hidden'); }, 2000);
 
   // 動態重建容器
   const wrap = document.getElementById('tvWrap');
   let oldWidget = document.getElementById('tv-dynamic-container');
-  if (oldWidget) {
-    oldWidget.remove();
-  }
+  if (oldWidget) oldWidget.remove();
+  
   const newContainer = document.createElement('div');
   newContainer.id = 'tv-dynamic-container';
   newContainer.style.width = '100%';
   newContainer.style.height = '100%';
   wrap.appendChild(newContainer);
 
-  studyIds = { vol:null, rsi:null, macd:null };
-
-  if (tvWidget) {
-    try { tvWidget.remove(); } catch(e) {}
-    tvWidget = null;
-  }
-
   const studiesToLoad = ['MASimple@tv-basicstudies'];
   if (activeStudies.vol)  studiesToLoad.push('Volume@tv-basicstudies');
   if (activeStudies.rsi)  studiesToLoad.push('RSI@tv-basicstudies');
   if (activeStudies.macd) studiesToLoad.push('MACD@tv-basicstudies');
 
-  tvWidget = new TradingView.widget({
-    symbol:            symbol,
-    interval:          'D',
-    container_id:      'tv-dynamic-container',
-    width:             '100%',
-    height:            '100%',
-    timezone:          'Asia/Taipei',
-    theme:             'dark',
-    style:             '1',            // Candlestick
-    locale:            'zh_TW',
-    toolbar_bg:        '#0f1520',
-    enable_publishing: false,
-    hide_top_toolbar:  false,
-    hide_legend:       false,
-    save_image:        true,
-    studies:           studiesToLoad,
-    studies_overrides: {
-      'volume.volume.color.0':       '#ff3d5a44',
-      'volume.volume.color.1':       '#00e67644',
-      'rsi.rsi.color':               '#ffd600',
-      'macd.macd.color':             '#7b5ea7',
-      'macd.signal.color':           '#ff9800',
-    },
-    overrides: {
-      'mainSeriesProperties.candleStyle.upColor':         '#00e676',
-      'mainSeriesProperties.candleStyle.downColor':       '#ff3d5a',
-      'mainSeriesProperties.candleStyle.borderUpColor':   '#00e676',
-      'mainSeriesProperties.candleStyle.borderDownColor': '#ff3d5a',
-      'mainSeriesProperties.candleStyle.wickUpColor':     '#00e676',
-      'mainSeriesProperties.candleStyle.wickDownColor':   '#ff3d5a',
-      'paneProperties.background':                        '#0a0e17',
-      'paneProperties.backgroundType':                    'solid',
-      'paneProperties.gridLinesMode':                     'Custom',
-      'paneProperties.horzGridProperties.color':          '#1e2d47',
-      'paneProperties.vertGridProperties.color':          '#1e2d47',
-      'scalesProperties.textColor':                       '#4a6080',
-      'scalesProperties.lineColor':                       '#1e2d47',
-    },
-    loading_screen: { backgroundColor:'#0a0e17', foregroundColor:'#00d4ff' },
-    onready: () => {
-      clearTimeout(failSafeTimeout);
-      loading.classList.add('hidden');
-      updateSymBar(symbol);
-    },
-  });
+  try {
+    tvWidget = new TradingView.widget({
+      symbol:            symbol,
+      interval:          'D',
+      container_id:      'tv-dynamic-container',
+      width:             '100%',
+      height:            '100%',
+      timezone:          'Asia/Taipei',
+      theme:             'dark',
+      style:             '1',
+      locale:            'zh_TW',
+      toolbar_bg:        '#0f1520',
+      enable_publishing: false,
+      hide_top_toolbar:  false,
+      hide_legend:       false,
+      save_image:        false,
+      studies:           studiesToLoad,
+      loading_screen: { backgroundColor:'#0a0e17', foregroundColor:'#00d4ff' },
+      onready: () => {
+        clearTimeout(failSafeTimeout);
+        loading.classList.add('hidden');
+      },
+    });
+  } catch(e) {
+    console.error("TradingView 載入錯誤", e);
+  }
   
-  // 即使圖表還沒準備好，先更新頂部資訊列
   updateSymBar(symbol);
 }
 
 // ════════════════════════════════════════════════════════════════
-//  SYM BAR UPDATE & EXTERNAL LINK
+//  UI 更新與互動
 // ════════════════════════════════════════════════════════════════
 function openOfficialChart() {
-  // 將 TWSE:2330 轉換為官方網址格式
-  const url = `https://tw.tradingview.com/chart/?symbol=${curSym}`;
-  window.open(url, '_blank');
+  window.open(`https://tw.tradingview.com/chart/?symbol=${curSym}`, '_blank');
 }
 
 const SYM_INFO = {
-  'NASDAQ:AAPL':  { name:'Apple Inc.',         exch:'NASDAQ' },
-  'NASDAQ:NVDA':  { name:'NVIDIA Corporation', exch:'NASDAQ' },
-  'NASDAQ:MSFT':  { name:'Microsoft Corp.',    exch:'NASDAQ' },
-  'NASDAQ:GOOGL': { name:'Alphabet Inc.',      exch:'NASDAQ' },
-  'NASDAQ:TSLA':  { name:'Tesla Inc.',         exch:'NASDAQ' },
-  'NASDAQ:META':  { name:'Meta Platforms',     exch:'NASDAQ' },
-  'NASDAQ:AMZN':  { name:'Amazon.com',         exch:'NASDAQ' },
-  'NYSE:AMD':     { name:'AMD',                exch:'NYSE'   },
-  'TWSE:2330':    { name:'台積電',              exch:'TWSE'   },
-  'TWSE:2317':    { name:'鴻海',                exch:'TWSE'   },
-  'TWSE:2454':    { name:'聯發科',              exch:'TWSE'   },
-  'TWSE:2412':    { name:'中華電信',            exch:'TWSE'   },
-  'TWSE:0050':    { name:'元大台灣50',          exch:'TWSE'   },
-  'TWSE:0056':    { name:'元大高股息',          exch:'TWSE'   },
-  'TWSE:2308':    { name:'台達電',              exch:'TWSE'   },
-  'NYSE:SPY':     { name:'SPDR S&P 500 ETF',   exch:'NYSE'   },
-  'NASDAQ:QQQ':   { name:'Invesco QQQ ETF',    exch:'NASDAQ' },
+  'NASDAQ:AAPL': { name:'Apple Inc.', exch:'NASDAQ' },
+  'NASDAQ:NVDA': { name:'NVIDIA', exch:'NASDAQ' },
+  'TWSE:2330':   { name:'台積電', exch:'TWSE' },
+  'TWSE:2317':   { name:'鴻海', exch:'TWSE' },
+  'TWSE:0050':   { name:'元大台灣50', exch:'TWSE' }
 };
 
 function updateSymBar(tvSym) {
   const info = SYM_INFO[tvSym] || {};
-  const disp = displaySym(tvSym);
-  document.getElementById('symBig').textContent  = disp;
-  document.getElementById('symFull').textContent = (info.name||tvSym) + (info.exch ? ' · '+info.exch : '');
-  document.getElementById('priceArea').style.display = 'none'; 
+  document.getElementById('symBig').textContent  = displaySym(tvSym);
+  document.getElementById('symFull').textContent = (info.name || '') + ' ' + (tvSym.split(':')[0] || '');
   document.getElementById('symMeta').innerHTML = `
-    <div class="sym-stat"><div class="sym-stat-l">資料來源</div><div class="sym-stat-v" style="color:var(--green)">TradingView</div></div>
-    <div class="sym-stat"><div class="sym-stat-l">圖表類型</div><div class="sym-stat-v">K線圖</div></div>
-    <div class="sym-stat"><div class="sym-stat-l">時區</div><div class="sym-stat-v">台北 GMT+8</div></div>`;
+    <div class="sym-stat"><div class="sym-stat-l">伺服器</div><div class="sym-stat-v" style="color:var(--green)">Online</div></div>`;
 }
 
-// ════════════════════════════════════════════════════════════════
-//  WATCHLIST RENDER
-// ════════════════════════════════════════════════════════════════
 function renderWatchlist() {
   document.getElementById('wlList').innerHTML = watchlist.map(tvSym => {
     const info = SYM_INFO[tvSym] || {};
-    const disp = displaySym(tvSym);
     return `
       <div class="witem ${tvSym===curSym?'active':''}" onclick="selectSym('${tvSym}')">
         <div class="wi-row1">
-          <span class="wi-sym">${disp}</span>
+          <span class="wi-sym">${displaySym(tvSym)}</span>
           <button class="wi-rm" onclick="rmSym('${tvSym}',event)" title="移除">✕</button>
         </div>
-        <div class="wi-name">${info.name||tvSym}</div>
-        <div class="wi-row2">
-          <span class="wi-price" style="color:var(--dim);font-size:10px">${info.exch||'--'}</span>
-        </div>
+        <div class="wi-name">${info.name || tvSym.split(':')[0]}</div>
       </div>`;
   }).join('');
 }
 
 function updateTicker() {
-  const pairs = [
-    ['AAPL','Apple'], ['NVDA','NVIDIA'], ['MSFT','Microsoft'],
-    ['GOOGL','Alphabet'], ['TSLA','Tesla'], ['META','Meta'],
-    ['2330.TW','台積電'], ['0050.TW','台灣50'], ['2317.TW','鴻海'],
-    ['SPY','S&P500 ETF'], ['QQQ','Nasdaq ETF']
-  ];
-  const items = pairs.map(([sym,name])=>`
+  const items = ['AAPL Apple', 'NVDA NVIDIA', '2330 台積電', '0050 台灣50', '2317 鴻海', 'BTC Bitcoin'].map(txt => `
     <span class="titem">
-      <span style="color:var(--dim)">${sym}</span>
-      <span style="color:var(--text)">${name}</span>
-      <span style="color:var(--dim);font-size:9px">TradingView↗</span>
+      <span style="color:var(--accent)">${txt.split(' ')[0]}</span>
+      <span style="color:var(--text)">${txt.split(' ')[1]}</span>
     </span>`).join('');
-  document.getElementById('tickerEl').innerHTML = items+items;
+  document.getElementById('tickerEl').innerHTML = items + items + items;
 }
 
-// ════════════════════════════════════════════════════════════════
-//  INDICATOR TOGGLES
-// ════════════════════════════════════════════════════════════════
 function toggleIndicator(name) {
   activeStudies[name] = !activeStudies[name];
   const clsMap = { vol:'on-vol', rsi:'on-rsi', macd:'on-macd' };
   const btn = document.getElementById('tog-'+name);
   activeStudies[name] ? btn.classList.add(clsMap[name]) : btn.classList.remove(clsMap[name]);
-
   buildWidget(curSym);
 }
 
-function toggleMA(study, length) {
-  toast(`在圖表上直接拖曳均線，或用圖表工具列新增`, 'ok');
-}
+function toggleMA() { toast(`已預設載入 MA20，您可於圖表左上方設定中修改週期。`, 'ok'); }
 
-// ════════════════════════════════════════════════════════════════
-//  ACTIONS
-// ════════════════════════════════════════════════════════════════
 function selectSym(tvSym) {
   curSym = tvSym;
   renderWatchlist();
@@ -542,9 +431,8 @@ function selectSym(tvSym) {
 
 function addFromSearch() {
   const inp = document.getElementById('searchInput');
-  const raw = inp.value.trim();
-  if (!raw) return;
-  const tvSym = toTVSymbol(raw);
+  if (!inp.value.trim()) return;
+  const tvSym = toTVSymbol(inp.value);
   if (!watchlist.includes(tvSym)) {
     watchlist.push(tvSym);
     saveWL();
@@ -560,24 +448,15 @@ function rmSym(tvSym, ev) {
   saveWL();
   if (curSym === tvSym && watchlist.length) selectSym(watchlist[0]);
   renderWatchlist();
-  toast('已移除 ' + displaySym(tvSym), 'ng');
+  toast('已移除', 'ng');
 }
 
 function clearAll() {
   if (!confirm('確定清空自選清單？')) return;
   watchlist = []; saveWL(); renderWatchlist();
-  document.getElementById('tv-dynamic-container').innerHTML = `
-    <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg)">
-      <div style="font-size:36px">📈</div>
-      <div style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text)">請加入股票開始監控</div>
-      <div style="font-size:11px;color:var(--dim);text-align:center;line-height:2">
-        美股：AAPL · NVDA · MSFT · TSLA · META<br>
-        台股：2330.TW · 0050.TW · 2317.TW · 0056.TW
-      </div>
-    </div>`;
 }
 
-function saveWL() { localStorage.setItem('sp_wl5', JSON.stringify(watchlist)); }
+function saveWL() { localStorage.setItem('sp_wl_v3', JSON.stringify(watchlist)); }
 
 function toast(msg, t='ok') {
   const el = document.getElementById('toast');
@@ -587,37 +466,19 @@ function toast(msg, t='ok') {
 
 function showHelp() { document.getElementById('helpModal').classList.add('show'); }
 function hideHelp() { document.getElementById('helpModal').classList.remove('show'); }
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('zh-TW', {hour12:false});
+}, 1000);
 
-// ════════════════════════════════════════════════════════════════
-//  CLOCK
-// ════════════════════════════════════════════════════════════════
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').textContent = now.toLocaleTimeString('zh-TW', {hour12:false});
-}
-setInterval(updateClock, 1000);
+document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') addFromSearch(); });
 
-// Search enter
-document.getElementById('searchInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addFromSearch();
-});
-
-// ════════════════════════════════════════════════════════════════
-//  INIT
-// ════════════════════════════════════════════════════════════════
-(function init() {
-  updateClock();
-  renderWatchlist();
+window.onload = function() {
   updateTicker();
-  
+  renderWatchlist();
   if (watchlist.length) {
-    updateSymBar(curSym);
-    setTimeout(() => {
-      buildWidget(curSym);
-    }, 100);
+    setTimeout(() => { buildWidget(curSym); }, 200);
   }
-})();
+};
 </script>
-
 </body>
 </html>
